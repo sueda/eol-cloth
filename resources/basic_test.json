@@ -1,0 +1,42 @@
+// Parameter json file for cloth sim
+{
+	// General params
+	"initial_cloth_dim": [0.5, 0.5], // Length in meters (width x height)
+	"initial_cloth_res": [2, 2], // Initial subdivisions (width x height)
+	"initial_cloth_pos": [0.0, 2.2, -1.67], // Center of cloth
+	
+	"density": 30.8,
+	"youngs": 50,
+	"poissons": 0.01,
+	"stiffness": 1e-6,
+	
+	"gravity": [0.0, -9.8, 0.0],
+	"damping": [0.0, 1.0],
+	"timestep": 1e-3,
+	
+	// Remeshing params
+	"remeshing_on": true,
+	"refine_angle": 0.3,
+	"refine_compression": 0.01,
+	"refine_velocity": 0.5,
+	"size": [50e-3, 200e-3],
+	"aspect_min": 0.5,
+	
+	// Fixture params
+	"fixed_on": false,
+	"N": "[1, 1, 1, 0, 0, 0]", // Not working
+	"E": "[1, 1, 1, 0, 0, 0]", // Not working
+	"S": "NA", // Not working
+	"W": "NA", // Not working
+	"NE": [1, 1, 1, 0, 0, 0],
+	"SE": "[1, 1, 1, 0, 0, 0]",
+	"SW": "[1, 1, 1, 0, 0, 0]",
+	"NW": "[1, 1, 1, 0, 0, 0]",
+	
+	
+	// Box params
+	"collision_on": true,
+	"box_dim": [3.3, 3.3, 3.3],
+	"rot_xyz": [0.0, 0.0, 0.0],
+	"box_threshold": 5e-2
+}

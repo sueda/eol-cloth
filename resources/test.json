@@ -1,0 +1,109 @@
+// Parameter json file for cloth sim
+{
+	// General params
+	"initial_cloth_dim": [1.0, 1.0], // Length in meters (width x height)
+	"initial_cloth_res": [2, 2], // Initial subdivisions (width x height)
+	//"initial_cloth_pos": [0.60, 1.66, -1.51], // Center of cloth -corner case: 1.60, 1.75, -1.51
+	"initial_cloth_pos": [0.0, 0.0, 0.0],
+	"vert_cloth": false,
+	
+	"density": 0.05, // Kg
+	"edge_density": 0.0,
+	"youngs": 50,
+	"poissons": 0.01,
+	"stiffness": 1.0e-5,
+	"damping": [0.0, 1.0],
+	
+	"gravity": [0.0, 0.0, -9.8],
+	"timestep": 0.5e-3,
+	
+	// Timing
+	"Export_timing": false,
+	
+	// EoL
+	"EoL_on": false,
+	
+	// Friction
+	"Friction": false,
+	"alpha": 1.0,
+	"alpha_change": 0.002,
+	
+	// Remeshing params
+	"remeshing_on": true,
+	"static_on": false,
+	"dynamic_on": true,
+	"refine_angle": 0.3,
+	"refine_compression": 0.005,
+	"refine_velocity": 0.5,
+	"size": [200e-3, 250e-3],
+	"aspect_min": 0.2,
+	
+	// Fixture params
+	"fixed_on": true,
+	"pull_step": 0,
+	"N": "[1, 1, 1, 0, 0, 0]", // Not working
+	"E": "[1, 1, 1, 0, 0, 0]", // Not working
+	"S": "NA", // Not working
+	"W": "NA", // Not working
+	"NE": [1, 1, 1, 0, 0.0, 0.0],
+	"SE": [1, 1, 1, 0, -0.0, 0.0],
+	"SW": [1, 1, 1, 0, -0.0, 0.0],
+	"NW": [1, 1, 1, 0, 0.0, 0.0],
+	
+	
+	// Box params
+	"collision_on": true,
+	"how_many_boxes": 1, // Must be less than or equal to the number of box parameter sets listed
+	"box_dim": [2.0, 1.0, 1.0],
+	"rot_xyz": [0.0, 0.0, 0.0],
+	"box_xyz": [0.52, 1.01, -0.51],
+	"box_v": [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+	"box_threshold": 1e-3,
+	"box_dim2": [1.0, 1.0, 1.0],
+	"rot_xyz2": [0.0, 0.0, 5.0],
+	"box_xyz2": [1.29, 1.29, -0.51],
+	"box_threshold2": 1e-3,
+	"box_dim3": [1.0, 1.0, 1.0],
+	"rot_xyz3": [0.0, 0.0, 5.0],
+	"box_xyz3": [-0.29, 1.29, -0.51],
+	"box_threshold3": 1e-3,
+	"box_dim4": [1.0, 1.0, 1.0],
+	"rot_xyz4": [0.0, 0.0, 5.0],
+	"box_xyz4": [1.29, -0.29, -0.51],
+	"box_threshold4": 5e-3,
+	
+	"use_wire": true,
+	
+	// Point Params
+	"use_points": false,
+	"use_points_file": true,
+	"how_many_points": 5,
+	"point0": [0.71, 0.51, -0.01],
+	"norm0": [0.0, 0.0, 1.0],
+	"pmove0": 0.5,
+	"point1": [0.31, 0.31, -0.01],
+	"norm1": [0.0, 0.0, 1.0],
+	"pmove1": 0.5,
+	"point2": [0.31, 0.71, -0.01],
+	"norm2": [0.0, 0.0, 1.0],
+	"pmove2": 0.5,
+	"point3": [0.51, 0.41, 0.01],
+	"norm3": [0.0, 0.0, -1.0],
+	"pmove3": 0.5,
+	"point4": [0.51, 0.61, 0.01],
+	"norm4": [0.0, 0.0, -1.0],
+	"pmove4": 0.5,
+	
+	// Edge collapse threshold when remeshing and collision are on
+	"preserve_edge": true,
+	"collapse_non_preserve_thresh": 0.01,
+	"collapse_preserve_thresh": 0.01,
+	
+	// Matlab debugging
+	"matlab_debug_physics": false,
+	"matlab_debug_collision": false,
+	
+	// Exporting
+	"export_postscript": false,
+	"export_objs": false
+}
