@@ -1,0 +1,59 @@
+// EOL Cloth simulation settings
+// Not including a setting will fall back to its default
+{
+
+	"timestep": 0.5e-3,
+	
+	"EOL": true, // Defaults to false. This on forces Remeshing on
+	
+	// The default cloth is 1m x 1m, centerd at (0.5,0.5,0.0), with a 2 points x 2 points resolution
+	"Cloth": {
+		"cloth_obj": "", // This takes priority if an obj is specialized and init is defined
+		
+		// Used in absence of a cloth obj
+		"init": {
+			"initial_cloth_res": [3, 3],
+			"corner1": [0.0, 0.0, 0.0],
+			"corner2": [1.0, 0.0, 0.0],
+			"corner3": [0.0, 1.0, 0.0],
+			"corner4": [1.0, 1.0, 0.0]
+		},
+		
+		"Material": {
+			"density": 0.05, // Kg
+			"youngs": 50.0,
+			"poissons": 0.01,
+			"stiffness": 1.0e-5,
+			"damping": [0.0, 1.0]
+		},
+		
+		// The inclusion of Remeshing in the settings file means to sim with it
+		"Remeshing": {
+			"refine_angle": 0.3,
+			"refine_compression": 0.005,
+			"refine_velocity": 0.5,
+			"size": [50e-3, 80e-3], // These are the main bounds that changes the overall resolution
+			"aspect_min": 0.2
+		}
+	},
+	
+	// Obstacles can include points, boxes, or both
+	// Either can be loaded from an external file, defined here, or both
+	"Obstacles": {
+		"threshold": 5e-3,
+		"points_file": "",
+		"points": [
+			[0.71, 0.51, -0.01, 
+			0.0, 0.0, 1.0]
+		],
+		
+		"box_file": "",
+		"boxes": [
+			[0.45, 0.45, 0.5,
+			0.45, 0.47, -0.249,
+			0.0, 0.0, 0.0,
+			0.0, 0.0, 0.0]
+		]
+	
+	}
+}
