@@ -5,6 +5,7 @@
 
 #include "external\ArcSim\geometry.hpp"
 #include "external\ArcSim\subset.hpp"
+#include "external\ArcSim\dynamicremesh.hpp"
 
 #include <stdlib.h>
 
@@ -32,7 +33,6 @@ double linepoint(const Vec3 &A, const Vec3 &B, const Vec3 &P)
 void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 {
 	for (int i = 0; i < cls.size(); i++) {
-		//if (i > 8) break;
 		if (cls[i]->count1 == 1 && cls[i]->count2 == 3) {
 			if ((mesh.nodes[cls[i]->verts2(0)]->EoL && mesh.nodes[cls[i]->verts2(0)]->cornerID == cls[i]->verts1(0)) ||
 				(mesh.nodes[cls[i]->verts2(1)]->EoL && mesh.nodes[cls[i]->verts2(1)]->cornerID == cls[i]->verts1(0)) ||
@@ -56,12 +56,50 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 			Face *f0 = get_enclosing_face(mesh, Vec2(xX, yX));
 			Vec3 bary = get_barycentric_coords(Vec2(xX, yX), f0);
 
-			RemeshOp op = split_face(f0, bary);
-			for (size_t v = 0; v < op.added_verts.size(); v++) {
-				Vert *vertnew = op.added_verts[v];
-				vertnew->sizing = (v0->sizing + v1->sizing + v2->sizing) / 3.0;
+			bool use_edge = false;
+			for (int j = 0; j < 3; j++) {
+				if (bary[j] < 1e-3) use_edge = true; // TODO:: No magic
 			}
-			op.done();
+
+			// If this point is on a cloth edge, we should edge split instead
+			if (use_edge) {
+				double least = 1.0;
+				int which = -1;
+				for (int j = 0; j < 3; j++) {
+					if (bary[j] < least) {
+						least = bary[j];
+						which = j;
+					}
+				}
+				Edge *e0 = get_opp_edge(f0, f0->v[which]->node);
+				double d;
+				if (e0->n[0] == f0->v[0]->node) {
+					d = 1.0 - bary[0];
+				}
+				else if (e0->n[0] == f0->v[1]->node) {
+					d = 1.0 - bary[1];
+				}
+				else {
+					d = 1.0 - bary[2];
+				}
+				Node *node0 = e0->n[0], *node1 = e0->n[1];
+				RemeshOp op = split_edgeForced(e0, d);
+				for (size_t v = 0; v < op.added_verts.size(); v++) {
+					Vert *vertnew = op.added_verts[v];
+					Vert *v0 = adjacent_vert(node0, vertnew),
+						*v1 = adjacent_vert(node1, vertnew);
+					vertnew->sizing = 0.5 * (v0->sizing + v1->sizing);
+				}
+				op.done();
+			}
+			else {
+				RemeshOp op = split_face(f0, bary);
+				for (size_t v = 0; v < op.added_verts.size(); v++) {
+					Vert *vertnew = op.added_verts[v];
+					vertnew->sizing = (v0->sizing + v1->sizing + v2->sizing) / 3.0;
+				}
+				op.done();
+			}
 
 			Node *n = mesh.nodes.back();
 			n->EoL = true;
@@ -74,10 +112,11 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 			if (mesh.nodes[cls[i]->verts2(0)]->EoL ||
 				mesh.nodes[cls[i]->verts2(1)]->EoL) continue;
 
-			// The CD edges don't map to the changing mesh edges so we need to find it
 			// The verts won't change since we only ever add verts
 			Edge *e0 = get_edge(mesh.nodes[cls[i]->verts2(0)], mesh.nodes[cls[i]->verts2(1)]);
 			double d;
+
+			// If two collisions occur on the same cloth edge, this get_edge will return NULL and we have to do a little more work to find it
 			if (e0 == NULL) {
 				Vert *v0 = mesh.verts[cls[i]->verts2(0)],
 					*v1 = mesh.verts[cls[i]->verts2(1)];
@@ -87,7 +126,7 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 				double yX = cls[i]->weights2(0) * v0->u[1] +
 					cls[i]->weights2(1) * v1->u[1];
 
-				// Faces CAN be added and deleted throughout this loop so we can't just use the CD returned tri
+				// A barycentric tests largest two values should be the nodes of the new edge we need to split
 				Face *f0 = get_enclosing_face(mesh, Vec2(xX, yX));
 				Vec3 bary = get_barycentric_coords(Vec2(xX, yX), f0);
 				double least = 1.0;
@@ -108,7 +147,6 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 				else {
 					d = bary[2];
 				}
-				cout << endl;
 			}
 			else {
 				// ArcSim splits an edge using the weight from n[1]
@@ -136,8 +174,6 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 			n->cdEdges = cls[i]->edge1;
 		}
 	}
-
-	//mesh2m(mesh, "mesh.m", true);
 }
 
 void markPreserve(Mesh& mesh)
@@ -182,45 +218,110 @@ void markPreserve(Mesh& mesh)
 	}
 }
 
-bool collapse_conformal(Mesh &mesh)
+double edge_metric(const Vert *vert0, const Vert *vert1);
+bool can_collapseForced(const Edge *edge, int i) {
+	for (int s = 0; s < 2; s++) {
+		const Vert *vert0 = edge_vert(edge, s, i), *vert1 = edge_vert(edge, s, 1 - i);
+		if (!vert0 || (s == 1 && vert0 == edge_vert(edge, 0, i)))
+			continue;
+		for (int f = 0; f < (int)vert0->adjf.size(); f++) {
+			const Face *face = vert0->adjf[f];
+			if (is_in(vert1, face->v))
+				continue;
+			const Vert *vs[3] = { face->v[0], face->v[1], face->v[2] };
+			double a0 = norm(cross(vs[1]->u - vs[0]->u, vs[2]->u - vs[0]->u)) / 2;
+			replace(vert0, vert1, vs);
+			double a = norm(cross(vs[1]->u - vs[0]->u, vs[2]->u - vs[0]->u)) / 2;
+			double asp = aspect(vs[0]->u, vs[1]->u, vs[2]->u);
+
+			double sz = 0.1*sqr(0.5);
+
+			if ((a < a0 && a < 1e-6) || asp < 1e-6) {
+				bool get_later = false;
+				for (int ne = 0; ne < 3; ne++) {
+					int nep;
+					ne == 2 ? nep = 0 : nep = ne + 1;
+					if (unsigned_vv_distance(vs[ne]->u, vs[nep]->u) < thresh) {
+						get_later = true;
+						break;
+					}
+				}
+				if (!get_later) return false;
+			}
+			//for (int e = 0; e < 3; e++)
+			//	if (vs[e] != vert1 && edge_metric(vs[NEXT(e)], vs[PREV(e)]) > 0.9) {
+			//		return false;
+			//	}
+		}
+	}
+	return true;
+}
+
+void pass_collapse(RemeshOp op, Node *n)
+{
+	for (int e = 0; e < op.removed_edges.size(); e++) {
+		if (op.removed_edges[e]->preserve) {
+			if (op.removed_edges[e]->n[0] == n || op.removed_edges[e]->n[1] == n) continue;
+			Edge *ep = get_edge(n, op.removed_edges[e]->n[0]);
+			if(ep == NULL) ep = get_edge(n, op.removed_edges[e]->n[1]);
+			if (ep != NULL) ep->preserve = true;
+		}
+	}
+}
+
+bool collapse_conformal(Mesh &mesh, bool &allclear)
 {
 	for (int i = 0; i < mesh.edges.size(); i++) {
 		Edge *e = mesh.edges[i];
 		if (e->preserve) {
 			if (edge_length(e) < thresh) {
+				allclear = false;
 				RemeshOp op;
 				Node *n0 = e->n[0],
 					*n1 = e->n[1];
+				if (n0->index == 607 || n1->index == 607) {
+					cout << endl;
+				}
 				if (is_seam_or_boundary(n1) || n1->cornerID >= 0) {
+					if (!can_collapseForced(e, 0)) continue;
 					op = collapse_edgeForced(e, 0);
 					if (op.empty()) continue;
+					pass_collapse(op, n1);
 					op.done();
 					return true;
 				}
 				else if (is_seam_or_boundary(n0) || n0->cornerID >= 0) {
+					if (!can_collapseForced(e, 1)) continue;
 					op = collapse_edgeForced(e, 1);
 					if (op.empty()) continue;
+					pass_collapse(op, n0);
 					op.done();
 					return true;
 				}
 				else {
 					if (n0->verts[0]->adjf.size() <= n1->verts[0]->adjf.size()) {
-						op = collapse_edgeForced(e, 1);
+						if (!can_collapseForced(e, 1)) op = collapse_edgeForced(e, 1);
 						if (op.empty()) {
+							if (!can_collapseForced(e, 0)) continue;
 							op = collapse_edgeForced(e, 0);
 							if (op.empty()) {
 								continue;
 							}
+							pass_collapse(op, n1);
 						}
+						else pass_collapse(op, n0);
 					}
 					else {
-						op = collapse_edgeForced(e, 0);
+						if (!can_collapseForced(e, 0)) op = collapse_edgeForced(e, 0);
 						if (op.empty()) {
+							if (!can_collapseForced(e, 1)) continue;
 							op = collapse_edgeForced(e, 1);
 							if (op.empty()) {
 								continue;
 							}
+							pass_collapse(op, n0);
 						}
+						else pass_collapse(op, n1);
 					}
 					op.done();
 					return true;
@@ -228,10 +329,11 @@ bool collapse_conformal(Mesh &mesh)
 			}
 		}
 	}
+	allclear = true;
 	return false;
 }
 
-bool collapse_nonconformal(Mesh &mesh)
+bool collapse_nonconformal(Mesh &mesh, bool &allclear)
 {
 	for (int i = 0; i < mesh.nodes.size(); i++) {
 		Node *n = mesh.nodes[i];
@@ -243,19 +345,23 @@ bool collapse_nonconformal(Mesh &mesh)
 					if (!e0->preserve && edge_length(e0) < thresh) {
 						Node *n0 = e0->n[0],
 							*n1 = e0->n[1];
+						if (n0->EoL && n1->EoL) continue;
 						// Don't deal with edges between boundary and inside
 						if (!(
 							(is_seam_or_boundary(n0) && is_seam_or_boundary(n1)) ||
 							(!is_seam_or_boundary(n0) && !is_seam_or_boundary(n1))
 							)) continue;
+						allclear = false;
 						RemeshOp op;
 						if (n0->EoL) {
+							if (!can_collapseForced(e0, 1)) continue;
 							op = collapse_edgeForced(e0, 1);
 							if (op.empty()) continue;
 							op.done();
 							return true;
 						}
 						else if (n1->EoL) {
+							if (!can_collapseForced(e0, 0)) continue;
 							op = collapse_edgeForced(e0, 0);
 							if (op.empty()) continue;
 							op.done();
@@ -263,8 +369,9 @@ bool collapse_nonconformal(Mesh &mesh)
 						}
 						else {
 							if (!n0->preserve) {
-								op = collapse_edgeForced(e0, 0);
+								if (can_collapseForced(e0, 0)) op = collapse_edgeForced(e0, 0);
 								if (op.empty()) {
+									if (!can_collapseForced(e0, 1)) continue;
 									op = collapse_edgeForced(e0, 1);
 									if (op.empty()) {
 										continue;
@@ -272,8 +379,9 @@ bool collapse_nonconformal(Mesh &mesh)
 								}
 							}
 							else if (!n1->preserve) {
-								op = collapse_edgeForced(e0, 1);
+								if (can_collapseForced(e0, 1)) op = collapse_edgeForced(e0, 1);
 								if (op.empty()) {
+									if (!can_collapseForced(e0, 0)) continue;
 									op = collapse_edgeForced(e0, 0);
 									if (op.empty()) {
 										continue;
@@ -288,6 +396,7 @@ bool collapse_nonconformal(Mesh &mesh)
 			}
 		}
 	}
+	allclear = true;
 	return false;
 }
 
@@ -403,13 +512,17 @@ void cleanup(Mesh& mesh)
 {
 	vector<Face*> active_faces = mesh.faces;
 	flip_edges(0, active_faces, 0, 0);
+	markPreserve(mesh);
 	bool allclear = false;
 	while (!allclear) {
-		while (collapse_nonconformal(mesh));
-		while (collapse_conformal(mesh));
-		allclear = split_illconditioned_faces(mesh);
+		while(!allclear) {
+			while (collapse_nonconformal(mesh, allclear));
+			while (collapse_conformal(mesh, allclear));
+		}
+		//allclear = split_illconditioned_faces(mesh);
 		allclear = true;
 	}
+	markPreserve(mesh);
 }
 
 // TODO::
@@ -471,14 +584,22 @@ void preprocess(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 
 	markPreserve(mesh);
 
-	//cleanup(mesh);
+	cleanup(mesh);
 
 	compute_ws_data(mesh);
 }
 
+void preprocessClean(Mesh& mesh)
+{
+	cleanup(mesh);
+	compute_ws_data(mesh);
+}
+
+bool a;
 void preprocessPart(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls, int &part)
 {
 	if (part == 1) {
+		a = true;
 		addGeometry(mesh, cls);
 		cout << "Add Geometry" << endl;
 	}
@@ -489,19 +610,23 @@ void preprocessPart(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls, int &pa
 	else if (part == 2) {
 		markPreserve(mesh);
 		cout << "Mark preserve" << endl;
-		part = 6;
+		//part = 6;
 	}
 	else if (part == 3) {
 		vector<Face*> active_faces = mesh.faces;
 		flip_edges(0, active_faces, 0, 0);
+		markPreserve(mesh);
 		cout << "Flipped edges" << endl;
 	}
 	else if (part == 4) {
-		while (collapse_nonconformal(mesh));
+		//bool a;
+		while (collapse_nonconformal(mesh,a));
 		cout << "Collapse nonfornformal" << endl;
 	}
 	else if (part == 5) {
-		while (collapse_conformal(mesh));
+		//bool a;
+		while (collapse_conformal(mesh,a));
+		if (!a) part = 3;
 		cout << "Collapse conformal" << endl;
 	}
 	else if (part == 6) {

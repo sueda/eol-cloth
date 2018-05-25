@@ -399,11 +399,11 @@ RemeshOp collapse_edge(Edge* edge, int i) {
 			op.added_edges.push_back(new Edge(node1, node2, edge1->theta_ideal,
 				edge1->preserve));
 		// Preserve in weird situations, also and issue with ArcSim?
-		if (node2 != node1 && (get_edge(node1, node2) != NULL && get_edge(node0, node2) != NULL)) {
-			if (get_edge(node0, node2)->preserve) {
-				get_edge(node1, node2)->preserve = true;
-			}
-		}
+		//if (node2 != node1 && (get_edge(node1, node2) != NULL && get_edge(node0, node2) != NULL)) {
+		//	if (get_edge(node0, node2)->preserve) {
+		//		get_edge(node1, node2)->preserve = true;
+		//	}
+		//}
 	}
 	for (int s = 0; s < 2; s++) {
 		Vert *vert0 = edge_vert(edge, s, i), *vert1 = edge_vert(edge, s, 1 - i);

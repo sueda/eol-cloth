@@ -78,7 +78,8 @@ void mesh2m(const Mesh& mesh, const string &file_name, const bool &overwrite)
 	VectorXi isEOL(mesh.nodes.size());
 	for (int i = 0; i < mesh.nodes.size(); i++) {
 
-		isEOL(i) = 0;
+		if (mesh.nodes[i]->EoL) isEOL(i) = 1;
+		else isEOL(i) = 0;
 		x_X(i, 0) = mesh.nodes[i]->x[0];
 		x_X(i, 1) = mesh.nodes[i]->x[1];
 		x_X(i, 2) = mesh.nodes[i]->x[2];

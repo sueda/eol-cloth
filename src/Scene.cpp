@@ -59,10 +59,13 @@ void Scene::step()
 	set_indices(cloth->mesh);
 	dynamic_remesh(cloth->mesh);
 	set_indices(cloth->mesh);
+	//preprocessClean(cloth->mesh);
+	//set_indices(cloth->mesh);
 	cloth->updateBuffers();
 	obs->step(h);
 	cls.clear();
 	mesh2m(cloth->mesh, "mesh.m", true);
+	cout << "step" << endl;
 }
 
 void Scene::partialStep()

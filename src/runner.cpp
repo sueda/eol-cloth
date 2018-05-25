@@ -86,6 +86,8 @@ static void char_callback(GLFWwindow *window, unsigned int key)
 	case 'p':
 		scene->partialStep();
 		break;
+	case 'v':
+		camera->toggleFlatView();
 	}
 }
 

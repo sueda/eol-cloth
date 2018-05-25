@@ -14,7 +14,8 @@ Camera::Camera() :
 	translations(0.0f, 0.0f, -5.0f),
 	rfactor(0.01f),
 	tfactor(0.001f),
-	sfactor(0.005f)
+	sfactor(0.005f),
+	flat(false)
 {
 }
 
@@ -31,7 +32,8 @@ void Camera::mouseClicked(float x, float y, bool shift, bool ctrl, bool alt)
 	} else if(ctrl) {
 		state = Camera::SCALE;
 	} else {
-		state = Camera::ROTATE;
+		if (flat) state = Camera::TRANSLATE;
+		else state = Camera::ROTATE;
 	}
 }
 
@@ -52,6 +54,20 @@ void Camera::mouseMoved(float x, float y)
 			break;
 	}
 	mousePrev = mouseCurr;
+}
+
+void Camera::toggleFlatView()
+{
+	if (flat) {
+		flat = !flat;
+		rotations = glm::vec2(0.0, 0.0);
+		translations = glm::vec3(0.0f, 0.0f, -2.0f);
+	}
+	else {
+		flat = !flat;
+		rotations = glm::vec2(0.0, M_PI/2);
+		translations = glm::vec3(-0.5f, -0.5f, -1.5f);
+	}
 }
 
 void Camera::applyProjectionMatrix(std::shared_ptr<MatrixStack> P) const

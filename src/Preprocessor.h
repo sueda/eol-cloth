@@ -9,4 +9,6 @@ void preprocess(Mesh& mesh, std::vector<std::shared_ptr<btc::Collision> > cls);
 
 void preprocessPart(Mesh& mesh, std::vector<std::shared_ptr<btc::Collision> > cls, int &part);
 
+void preprocessClean(Mesh& mesh);
+
 #endif
