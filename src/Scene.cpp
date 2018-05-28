@@ -57,6 +57,7 @@ void Scene::step()
 	preprocess(cloth->mesh, cls);
 	//reindex_nodes(cloth->mesh.nodes);
 	set_indices(cloth->mesh);
+	cout << "pre" << endl;
 	dynamic_remesh(cloth->mesh);
 	set_indices(cloth->mesh);
 	//preprocessClean(cloth->mesh);

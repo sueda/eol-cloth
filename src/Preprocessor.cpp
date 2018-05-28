@@ -5,17 +5,13 @@
 
 #include "external\ArcSim\geometry.hpp"
 #include "external\ArcSim\subset.hpp"
-#include "external\ArcSim\dynamicremesh.hpp"
 
 #include <stdlib.h>
 
 using namespace std;
 //using namespace Eigen;
 
-double upp = 0.0;
-int wh = 0;
-
-double thresh = 0.01;
+double thresh = 0.01; // TODO:: Move
 
 Vert *adjacent_vert(const Node *node, const Vert *vert);
 
@@ -116,7 +112,7 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 			Edge *e0 = get_edge(mesh.nodes[cls[i]->verts2(0)], mesh.nodes[cls[i]->verts2(1)]);
 			double d;
 
-			// If two collisions occur on the same cloth edge, this get_edge will return NULL and we have to do a little more work to find it
+			// If a previous collisions has already split this edge this get_edge will return NULL and we have to do a little more work to find it
 			if (e0 == NULL) {
 				Vert *v0 = mesh.verts[cls[i]->verts2(0)],
 					*v1 = mesh.verts[cls[i]->verts2(1)];
@@ -139,13 +135,13 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 				}
 				e0 = get_opp_edge(f0, f0->v[which]->node);
 				if (e0->n[0] == f0->v[0]->node) {
-					d = bary[0];
+					d = 1.0 - bary[0];
 				}
 				else if (e0->n[0] == f0->v[1]->node) {
-					d = bary[1];
+					d = 1.0 - bary[1];
 				}
 				else {
-					d = bary[2];
+					d = 1.0 - bary[2];
 				}
 			}
 			else {
@@ -257,6 +253,9 @@ bool can_collapseForced(const Edge *edge, int i) {
 	return true;
 }
 
+// For very illconditioned geometry we can potentially have two preserved edges forming a triangle
+// We want to collapse this triangle and just make the non preserved edge the new single preserved edge
+// This triangle was practically a line it was so thin that nothing is really being altered dramatically
 void pass_collapse(RemeshOp op, Node *n)
 {
 	for (int e = 0; e < op.removed_edges.size(); e++) {
@@ -329,7 +328,6 @@ bool collapse_conformal(Mesh &mesh, bool &allclear)
 			}
 		}
 	}
-	allclear = true;
 	return false;
 }
 
@@ -396,7 +394,6 @@ bool collapse_nonconformal(Mesh &mesh, bool &allclear)
 			}
 		}
 	}
-	allclear = true;
 	return false;
 }
 
@@ -459,6 +456,8 @@ double face_altitude(Edge* edge, Face* face) {
 	return (2 * area(face)) / edge_length(edge);
 }
 
+
+// TODO:: Better metric than face altitude?
 bool split_illconditioned_faces(Mesh &mesh)
 {
 	vector<Edge*> bad_edges;
@@ -508,6 +507,8 @@ bool split_illconditioned_faces(Mesh &mesh)
 void flip_edges(MeshSubset* subset, vector<Face*>& active_faces,
 	vector<Edge*>* update_edges, vector<Face*>* update_faces);
 
+
+// TODO:: Does conformal stalling occur with EOL?
 void cleanup(Mesh& mesh)
 {
 	vector<Face*> active_faces = mesh.faces;
@@ -515,14 +516,17 @@ void cleanup(Mesh& mesh)
 	markPreserve(mesh);
 	bool allclear = false;
 	while (!allclear) {
+		// Iterate until all the bad edges are accounted for
+		// If a bad edge exists, but is unsafe to collapse, try in the next iteration where it may become safe, or another operation may take care of it
 		while(!allclear) {
+			allclear = true;
 			while (collapse_nonconformal(mesh, allclear));
 			while (collapse_conformal(mesh, allclear));
 		}
-		//allclear = split_illconditioned_faces(mesh);
-		allclear = true;
+		allclear = split_illconditioned_faces(mesh);
+		//allclear = true;
 	}
-	markPreserve(mesh);
+	markPreserve(mesh); // Probably doesn't need to be called so much, but wan't to be safe
 }
 
 // TODO::
@@ -580,8 +584,6 @@ void preprocess(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 
 	addGeometry(mesh, cls);
 
-	//while (collapse_close(mesh));
-
 	markPreserve(mesh);
 
 	cleanup(mesh);
@@ -603,10 +605,6 @@ void preprocessPart(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls, int &pa
 		addGeometry(mesh, cls);
 		cout << "Add Geometry" << endl;
 	}
-	//else if (part == 2) {
-	//	//while (collapse_close(mesh));
-	//	cout << "Collapse Close" << endl;
-	//}
 	else if (part == 2) {
 		markPreserve(mesh);
 		cout << "Mark preserve" << endl;
@@ -619,12 +617,11 @@ void preprocessPart(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls, int &pa
 		cout << "Flipped edges" << endl;
 	}
 	else if (part == 4) {
-		//bool a;
+		a = true;
 		while (collapse_nonconformal(mesh,a));
 		cout << "Collapse nonfornformal" << endl;
 	}
 	else if (part == 5) {
-		//bool a;
 		while (collapse_conformal(mesh,a));
 		if (!a) part = 3;
 		cout << "Collapse conformal" << endl;
