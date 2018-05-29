@@ -498,6 +498,14 @@ bool split_illconditioned_faces(Mesh &mesh)
 				*v1 = adjacent_vert(node1, vertnew);
 			vertnew->sizing = 0.5 * (v0->sizing + v1->sizing);
 		}
+		// We don't want to try and split these triangles only to make them worse for the next pass
+		bool make_worse = true;
+		for (size_t n = 0; n < op.added_nodes.size(); n++) {
+			for (int adje = 0; adje < op.added_nodes[n]->adje.size(); adje++) {
+				if (edge_length(op.added_nodes[n]->adje[adje]) < thresh) make_worse = false;
+			}
+		}
+		if (make_worse) op.cancel();
 		op.set_null(bad_edges);
 		op.done();
 	}

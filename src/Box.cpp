@@ -22,7 +22,33 @@
 
 using namespace std;
 
+double faceNorm_data[] = {
+	1.0,	0.0,	0.0,
+	-1.0,	0.0,	0.0,
+	0.0,	1.0,	0.0,
+	0.0,	-1.0,	0.0,
+	0.0,	0.0,	1.0,
+	0.0,	0.0,	-1.0
+};
+
+int edgeFaces_data[] = {
+	1,3,
+	1,5,
+	1,4,
+	1,2,
+	3,5,
+	3,4,
+	0,3,
+	2,5,
+	0,5,
+	2,4,
+	0,4,
+	0,2
+};
+
 Box::Box(const shared_ptr<Shape> s) :
+	num_points(8),
+	num_edges(12),
 	dim(1.0, 1.0, 1.0),
 	x(0.0, 0.0, 0.0),
 	E1(Eigen::Matrix4d::Identity()),
@@ -31,12 +57,17 @@ Box::Box(const shared_ptr<Shape> s) :
 	v(Eigen::Matrix<double, 6, 1>::Zero()),
 	boxShape(s)
 {
-
+	Eigen::Map<Eigen::Matrix<double, 3, 6, Eigen::ColMajor> > faceNorms_(faceNorm_data);
+	faceNorms = E1.block<3, 3>(0, 0) * faceNorms_;
+	Eigen::Map<Eigen::Matrix<int, 2, 12, Eigen::ColMajor> > edgeFaces1_(edgeFaces_data);
+	edgeFaces = edgeFaces1_;
 }
 
 Box::~Box()
 {
 }
+
+
 
 void Box::step(double h)
 {
@@ -46,6 +77,9 @@ void Box::step(double h)
 	adjoint.block<3, 3>(3, 3) = E1.block<3, 3>(0, 0).transpose();
 	E1 = rigid->integrate(E1, adjoint*v, h);
 	E1inv = E1.inverse();
+
+	Eigen::Map<Eigen::Matrix<double, 3, 6, Eigen::ColMajor> > faceNorms_(faceNorm_data);
+	faceNorms = E1.block<3, 3>(0, 0) * faceNorms_;
 }
 
 #ifdef EOLC_ONLINE
@@ -70,6 +104,17 @@ void Box::draw(shared_ptr<MatrixStack> MV, const shared_ptr<Program> prog) const
 	glUniformMatrix4fv(prog->getUniform("MV"), 1, GL_FALSE, glm::value_ptr(MV->topMatrix()));
 	boxShape->draw(prog);
 	MV->popMatrix();
+}
+
+void Box::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Program> prog) const
+{
+	for (int i = 0; i < faceNorms.cols(); i++) {
+		glColor3f(1.0f, 0.0f, 1.0f);
+		glBegin(GL_LINES);
+		glVertex3f(E1(0,3), E1(1, 3), E1(2, 3));
+		glVertex3f(E1(0, 3) + faceNorms(0,i), E1(1, 3) + faceNorms(1, i), E1(2, 3) + faceNorms(2, i));
+		glEnd();
+	}
 }
 
 #endif // EOLC_ONLINE

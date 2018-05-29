@@ -2,6 +2,9 @@
 #ifndef __Obstacles__
 #define __Obstacles__
 
+#define EIGEN_DONT_ALIGN_STATICALLY
+#include <Eigen/Dense>
+
 #include <vector>
 #include <memory>
 
@@ -17,6 +20,7 @@ class Program;
 class Obstacles
 {
 public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 	Obstacles();
 	virtual ~Obstacles() {};
@@ -32,6 +36,7 @@ public:
 
 #ifdef EOLC_ONLINE
 	void draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
+	void drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
 	void init();
 #endif // EOLC_ONLINE
 

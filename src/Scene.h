@@ -13,6 +13,7 @@
 
 class Cloth;
 class Obstacles;
+class Constraints;
 class Shape;
 
 #ifdef EOLC_ONLINE
@@ -49,6 +50,7 @@ public:
 
 	std::shared_ptr<Cloth> cloth;
 	std::shared_ptr<Obstacles> obs;
+	std::shared_ptr<Constraints> consts;
 	std::vector<std::shared_ptr<btc::Collision> > cls;
 	
 private:

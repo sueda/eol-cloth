@@ -32,8 +32,12 @@ public:
 
 #ifdef EOLC_ONLINE
 	void draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
+	void drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
 	void init();
 #endif // EOLC_ONLINE
+
+	int num_points;
+	int num_edges;
 
 	Eigen::Vector3d dim;
 	Eigen::Vector3d rot;
@@ -43,12 +47,19 @@ public:
 	Eigen::VectorXd v;
 	Eigen::MatrixXd adjoint;
 
+	// These are used for constraints
+	Eigen::MatrixXd faceNorms;
+	Eigen::MatrixXi edgeFaces;
+
+
 	// Export
 	int getBrenderCount() const;
 	std::vector<std::string> getBrenderNames() const;
 	void exportBrender(std::vector< std::shared_ptr< std::ofstream > > outfiles) const;
 
 private:
+	void generateConstraints();
+
 	const std::shared_ptr<Shape> boxShape;
 };
 

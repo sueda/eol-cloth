@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <vector>
+#define EIGEN_DONT_ALIGN_STATICALLY
 #include <Eigen/Dense>
 
 // Throughout this code, `1` refers to the box and `2` refers to the cloth.

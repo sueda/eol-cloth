@@ -2,6 +2,7 @@
 #include "Box.h"
 #include "Points.h"
 
+#define EIGEN_DONT_ALIGN_STATICALLY
 #include <Eigen\Dense>
 
 using namespace std;
@@ -33,10 +34,11 @@ void CD(Mesh& mesh, shared_ptr<Obstacles> obs, std::vector<std::shared_ptr<btc::
 		// TODO:: Internally?
 		for (c; c < cls.size(); c++) {
 			if (cls[c]->count1 == 1 && cls[c]->count2 == 3) {
-				cls[c]->verts1(0) = obs->points->num_points + (8 * b) + cls[c]->verts1(0);
+				cls[c]->verts1(0) = obs->points->num_points + (obs->boxes[b]->num_points * b) + cls[c]->verts1(0);
 			}
 			for (int e = 0; e < cls[c]->edge1.size(); e++) {
-				cls[c]->edge1[e] = obs->points->num_points + (12 * b) + cls[c]->edge1[e];
+				//cls[c]->edge1[e] = obs->points->num_points + (obs->boxes[b]->num_edges * b) + cls[c]->edge1[e];
+				cls[c]->edge1[e] = (obs->boxes[b]->num_edges * b) + cls[c]->edge1[e];
 			}
 		}
 	}
