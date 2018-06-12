@@ -69,7 +69,7 @@ Box::~Box()
 
 
 
-void Box::step(double h)
+void Box::step(const double h)
 {
 	//adjoint = rigid->adjoint(E1inv);
 	adjoint = Matrix6d::Identity();

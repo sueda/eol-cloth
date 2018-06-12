@@ -4,7 +4,7 @@
 #include "external\ArcSim\blockvectors.hpp"
 #include "external\ArcSim\geometry.hpp"
 
-RemeshOp split_edgeForced(Edge* edge, double d) {
+RemeshOp split_edgeForced(Edge* edge, double d, double thresh) {
 	Mesh& mesh = *edge->n[0]->mesh;
 	RemeshOp op;
 	Node *node0 = edge->n[0],
@@ -48,8 +48,26 @@ RemeshOp split_edgeForced(Edge* edge, double d) {
 		op.added_faces.push_back(nf0);
 		op.added_faces.push_back(nf1);
 	}
-	op.apply(mesh);
-	node->y = (1 - d)*node0->y + d*node1->y;
+
+	bool make_worse = true;
+	if (thresh > 0) {
+		for (size_t n = 0; n < op.added_nodes.size(); n++) {
+			for (int adje = 0; adje < op.added_nodes[n]->adje.size(); adje++) {
+				if (edge_length(op.added_nodes[n]->adje[adje]) < thresh) make_worse = false;
+			}
+		}
+	}
+	else {
+		make_worse = false;
+	}
+
+	if (make_worse) {
+		op.cancel();
+	}
+	else {
+		op.apply(mesh);
+		node->y = (1 - d)*node0->y + d*node1->y;
+	}
 	return op;
 }
 

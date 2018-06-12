@@ -28,7 +28,7 @@ public:
 
 	Box(const std::shared_ptr<Shape> shape);
 	virtual ~Box();
-	void step(double h);
+	void step(const double h);
 
 #ifdef EOLC_ONLINE
 	void draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;

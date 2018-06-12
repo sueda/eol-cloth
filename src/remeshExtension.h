@@ -4,7 +4,7 @@
 
 #include "external\ArcSim\remesh.hpp"
 
-RemeshOp split_edgeForced(Edge* edge, double d);
+RemeshOp split_edgeForced(Edge* edge, double d, double thresh);
 
 RemeshOp collapse_edgeForced(Edge* edge, int i);
 

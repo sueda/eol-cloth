@@ -8,7 +8,7 @@
 using namespace std;
 using namespace Eigen;
 
-void CD(Mesh& mesh, shared_ptr<Obstacles> obs, std::vector<std::shared_ptr<btc::Collision> > &cls)
+void CD(const Mesh& mesh, const shared_ptr<Obstacles> obs, std::vector<std::shared_ptr<btc::Collision> > &cls)
 {
 	MatrixXd verts2(3, mesh.nodes.size());
 	MatrixXi faces2(3, mesh.faces.size());

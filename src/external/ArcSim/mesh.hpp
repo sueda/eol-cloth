@@ -84,6 +84,7 @@ struct Node {
 	Mesh* mesh;
 
 	bool EoL;
+	int EoL_index;
 	int cornerID;
 	std::vector<int> cdEdges;
 
@@ -106,7 +107,7 @@ struct Node {
 	Node() : uuid(uuid_src++), label(0), flag(0), preserve(false), index(-1), a(0), m(0) {}
 	explicit Node(const Vec3 &y, const Vec3 &x, const Vec3 &v, int label, int flag,
 		bool preserve) :
-		EoL(false), cornerID(-1), // EoL specifics
+		EoL(false), EoL_index(-1), cornerID(-1), // EoL specifics
 		uuid(uuid_src++), mesh(0), label(label), flag(flag), y(y), x(x), x0(x), v(v), preserve(preserve),
 		curvature(0) {}
 
@@ -171,6 +172,8 @@ struct Mesh {
 	std::shared_ptr<Cloth> parent;
 	//CollisionProxy* proxy;
 
+	int EoL_Count;
+
 	std::vector<Vert*> verts;
 	std::vector<Node*> nodes;
 	std::vector<Edge*> edges;
@@ -185,7 +188,7 @@ struct Mesh {
 	void remove(Edge *edge);
 	void remove(Face *face);
 
-	Mesh() : ref(0), parent(0) {};
+	Mesh() : ref(0), parent(0), EoL_Count(0) {};
 
 	//void serializer(Serialize& s);
 };

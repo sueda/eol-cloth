@@ -394,8 +394,19 @@ void set_indices(Mesh &mesh) {
 		mesh.verts[v]->index = v;
 	for (size_t f = 0; f < mesh.faces.size(); f++)
 		mesh.faces[f]->index = f;
-	for (size_t n = 0; n < mesh.nodes.size(); n++)
+	int eoli = 0; // Added by Nick to index EoL nodes
+	for (size_t n = 0; n < mesh.nodes.size(); n++) {
 		mesh.nodes[n]->index = n;
+		// Reset EoL indices as well
+		if (mesh.nodes[n]->EoL) {
+			mesh.nodes[n]->EoL_index = eoli;
+			eoli++;
+		}
+		else {
+			mesh.nodes[n]->EoL_index = -1;
+		}
+	}
+	mesh.EoL_Count = eoli; // Update the number of EoL nodes in a mesh
 	for (size_t e = 0; e < mesh.edges.size(); e++)
 		mesh.edges[e]->index = e;
 }

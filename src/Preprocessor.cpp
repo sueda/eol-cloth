@@ -26,7 +26,7 @@ double linepoint(const Vec3 &A, const Vec3 &B, const Vec3 &P)
 	return apab / ab2;
 }
 
-void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
+void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 {
 	for (int i = 0; i < cls.size(); i++) {
 		if (cls[i]->count1 == 1 && cls[i]->count2 == 3) {
@@ -79,7 +79,7 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 					d = 1.0 - bary[2];
 				}
 				Node *node0 = e0->n[0], *node1 = e0->n[1];
-				RemeshOp op = split_edgeForced(e0, d);
+				RemeshOp op = split_edgeForced(e0, d, -1);
 				for (size_t v = 0; v < op.added_verts.size(); v++) {
 					Vert *vertnew = op.added_verts[v];
 					Vert *v0 = adjacent_vert(node0, vertnew),
@@ -156,7 +156,7 @@ void addGeometry(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
 			}
 
 			Node *node0 = e0->n[0], *node1 = e0->n[1];
-			RemeshOp op = split_edgeForced(e0, d);
+			RemeshOp op = split_edgeForced(e0, d, -1);
 			for (size_t v = 0; v < op.added_verts.size(); v++) {
 				Vert *vertnew = op.added_verts[v];
 				Vert *v0 = adjacent_vert(node0, vertnew),
@@ -487,11 +487,16 @@ bool split_illconditioned_faces(Mesh &mesh)
 			}
 		}
 	}
+	int exclude = 0;
 	for (size_t e = 0; e < bad_edges.size(); e++) {
 		Edge *edge = bad_edges[e];
 		if (!edge) continue;
 		Node *node0 = edge->n[0], *node1 = edge->n[1];
-		RemeshOp op = split_edgeForced(edge, 0.5);
+		RemeshOp op = split_edgeForced(edge, 0.5, thresh);
+		if (op.empty()) {
+			exclude++;
+			continue;
+		}
 		for (size_t v = 0; v < op.added_verts.size(); v++) {
 			Vert *vertnew = op.added_verts[v];
 			Vert *v0 = adjacent_vert(node0, vertnew),
@@ -499,17 +504,17 @@ bool split_illconditioned_faces(Mesh &mesh)
 			vertnew->sizing = 0.5 * (v0->sizing + v1->sizing);
 		}
 		// We don't want to try and split these triangles only to make them worse for the next pass
-		bool make_worse = true;
-		for (size_t n = 0; n < op.added_nodes.size(); n++) {
-			for (int adje = 0; adje < op.added_nodes[n]->adje.size(); adje++) {
-				if (edge_length(op.added_nodes[n]->adje[adje]) < thresh) make_worse = false;
-			}
-		}
-		if (make_worse) op.cancel();
+		//bool make_worse = true;
+		//for (size_t n = 0; n < op.added_nodes.size(); n++) {
+		//	for (int adje = 0; adje < op.added_nodes[n]->adje.size(); adje++) {
+		//		if (edge_length(op.added_nodes[n]->adje[adje]) < thresh) make_worse = false;
+		//	}
+		//}
+		//if (make_worse) op.cancel();
 		op.set_null(bad_edges);
 		op.done();
 	}
-	return bad_edges.size() == 0;
+	return bad_edges.size() == 0 + exclude;
 }
 
 void flip_edges(MeshSubset* subset, vector<Face*>& active_faces,
@@ -529,6 +534,7 @@ void cleanup(Mesh& mesh)
 		while(!allclear) {
 			allclear = true;
 			while (collapse_nonconformal(mesh, allclear));
+			markPreserve(mesh); // Can be removed if the conformal pass doesn't loop over edges and check for preserve status
 			while (collapse_conformal(mesh, allclear));
 		}
 		allclear = split_illconditioned_faces(mesh);
@@ -542,7 +548,7 @@ void cleanup(Mesh& mesh)
 // Don't collapse corners 
 // ArcSim sizing on new nodes?
 
-void preprocess(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls)
+void preprocess(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 {
 	//double r0 = (double) rand() / RAND_MAX;
 	//double r1 = (double) rand() / RAND_MAX;
@@ -606,9 +612,17 @@ void preprocessClean(Mesh& mesh)
 }
 
 bool a;
-void preprocessPart(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls, int &part)
+void preprocessPart(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls, int &part)
 {
 	if (part == 1) {
+		for (int i = 0; i < mesh.nodes.size(); i++) {
+			mesh.nodes[i]->EoL = false;
+			mesh.nodes[i]->cornerID = -1;
+			mesh.nodes[i]->cdEdges.clear();
+		}
+		for (int i = 0; i < mesh.edges.size(); i++) {
+			mesh.edges[i]->preserve = false;
+		}
 		a = true;
 		addGeometry(mesh, cls);
 		cout << "Add Geometry" << endl;
@@ -627,6 +641,7 @@ void preprocessPart(Mesh& mesh, vector<shared_ptr<btc::Collision> > cls, int &pa
 	else if (part == 4) {
 		a = true;
 		while (collapse_nonconformal(mesh,a));
+		markPreserve(mesh);
 		cout << "Collapse nonfornformal" << endl;
 	}
 	else if (part == 5) {
