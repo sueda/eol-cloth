@@ -28,6 +28,7 @@ public:
 	Eigen::SparseVector<double> bineq;
 
 	std::vector<Eigen::VectorXd> constraintTable;
+	std::vector<Eigen::Vector2i> obsTable;
 
 	void init(const std::shared_ptr<Obstacles> obs);
 	void updateTable(const std::shared_ptr<Obstacles> obs);

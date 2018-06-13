@@ -50,6 +50,7 @@ public:
 	// These are used for constraints
 	Eigen::MatrixXd faceNorms;
 	Eigen::MatrixXi edgeFaces;
+	Eigen::VectorXi edgeTan;
 
 
 	// Export

@@ -34,11 +34,13 @@ void CD(const Mesh& mesh, const shared_ptr<Obstacles> obs, std::vector<std::shar
 		// TODO:: Internally?
 		for (c; c < cls.size(); c++) {
 			if (cls[c]->count1 == 1 && cls[c]->count2 == 3) {
-				cls[c]->verts1(0) = obs->points->num_points + (obs->boxes[b]->num_points * b) + cls[c]->verts1(0);
+				//cls[c]->verts1(0) = obs->points->num_points + (obs->boxes[b]->num_points * b) + cls[c]->verts1(0);
+				cls[c]->verts1(0) = obs->points->num_points + (b* obs->boxes[b]->num_points) + (b* obs->boxes[b]->num_edges) + cls[c]->verts1(0);
 			}
 			for (int e = 0; e < cls[c]->edge1.size(); e++) {
 				//cls[c]->edge1[e] = obs->points->num_points + (obs->boxes[b]->num_edges * b) + cls[c]->edge1[e];
-				cls[c]->edge1[e] = (obs->boxes[b]->num_edges * b) + cls[c]->edge1[e];
+				//cls[c]->edge1[e] = (obs->boxes[b]->num_edges * b) + cls[c]->edge1[e];
+				cls[c]->edge1[e] = obs->points->num_points + (b* obs->boxes[b]->num_points) + (b* obs->boxes[b]->num_edges) + (obs->boxes[b]->num_points + cls[c]->edge1[e]);
 			}
 		}
 	}
