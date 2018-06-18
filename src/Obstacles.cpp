@@ -50,8 +50,9 @@ void Obstacles::draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Prog
 void Obstacles::drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const
 {
 	for (int i = 0; i < boxes.size(); i++) {
-		boxes[i]->drawSimple(MV, p);
+		//boxes[i]->drawSimple(MV, p);
 	}
+	points->drawSimple(MV, p);
 }
 #endif // EOLC_ONLINE
 

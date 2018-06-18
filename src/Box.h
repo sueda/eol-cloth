@@ -51,6 +51,7 @@ public:
 	Eigen::MatrixXd faceNorms;
 	Eigen::MatrixXi edgeFaces;
 	Eigen::VectorXi edgeTan;
+	Eigen::MatrixXi vertEdges1;
 
 
 	// Export

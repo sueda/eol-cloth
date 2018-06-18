@@ -230,7 +230,7 @@ void Cloth::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Program> p) 
 		}
 
 		if (e->n[0]->EoL) {
-			glColor3f(0.0f, 1.0f, 1.0f);
+			glColor3f(1.0f, 0.0f, 0.0f);
 			glPointSize(10.0f);
 			glBegin(GL_POINTS);
 			glVertex3f(e->n[0]->x[0], e->n[0]->x[1], e->n[0]->x[2]);
@@ -238,7 +238,7 @@ void Cloth::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Program> p) 
 		}
 
 		if (e->n[1]->EoL) {
-			glColor3f(0.0f, 1.0f, 1.0f);
+			glColor3f(1.0f, 0.0f, 0.0f);
 			glPointSize(10.0f);
 			glBegin(GL_POINTS);
 			glVertex3f(e->n[1]->x[0], e->n[1]->x[1], e->n[1]->x[2]);

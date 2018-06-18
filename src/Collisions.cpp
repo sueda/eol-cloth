@@ -16,6 +16,8 @@ void CD(const Mesh& mesh, const shared_ptr<Obstacles> obs, std::vector<std::shar
 	VectorXi EoLs;
 	EoLs.resize(mesh.nodes.size());
 
+
+
 	for (int i = 0; i < mesh.nodes.size(); i++) {
 		verts2.col(i) = Vector3d(mesh.nodes[i]->x[0], mesh.nodes[i]->x[1], mesh.nodes[i]->x[2]);
 		if (mesh.nodes[i]->EoL) EoLs(i) = 1;
@@ -29,7 +31,9 @@ void CD(const Mesh& mesh, const shared_ptr<Obstacles> obs, std::vector<std::shar
 
 	int c = cls.size();
 	for (int b = 0; b < obs->num_boxes; b++) {
-		btc::boxTriCollision(cls, obs->cdthreshold, obs->boxes[b]->dim, obs->boxes[b]->E1, verts2, faces2, EoLs, false);
+		vector<shared_ptr<btc::Collision> > clst;
+		btc::boxTriCollision(clst, obs->cdthreshold, obs->boxes[b]->dim, obs->boxes[b]->E1, verts2, faces2, EoLs, false);
+		cls.insert(cls.end(), clst.begin(), clst.end());
 		// We need to augment the indices of the box geometry by the object number
 		// TODO:: Internally?
 		for (c; c < cls.size(); c++) {

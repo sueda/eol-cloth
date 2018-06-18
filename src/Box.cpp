@@ -61,6 +61,17 @@ int edgeTan_data[] = {
 	4
 };
 
+int vertsEdge1_data[] = {
+	0, 1, 4,
+	0, 2, 5,
+	1, 3, 7,
+	2, 3, 9,
+	4, 6, 8,
+	5, 6, 10,
+	7, 8, 11,
+	9, 10, 11
+};
+
 Box::Box(const shared_ptr<Shape> s) :
 	num_points(8),
 	num_edges(12),
@@ -78,6 +89,8 @@ Box::Box(const shared_ptr<Shape> s) :
 	edgeFaces = edgeFaces1_;
 	Eigen::Map<Eigen::Matrix<int, 1, 12> > edgeTan_(edgeTan_data);
 	edgeTan = edgeTan_;
+	Eigen::Map<Eigen::Matrix<int, 3, 8, Eigen::ColMajor> > vertEdges1_(vertsEdge1_data);
+	vertEdges1 = vertEdges1_;
 }
 
 Box::~Box()
