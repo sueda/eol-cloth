@@ -23,12 +23,12 @@ OPTION(IGL "Build with libIGL support" OFF)
 # These paths are machine specific
 # These paths are examples
 
- SET(DEF_DIR_EIGEN "D:\\c++\\eigen-3.3.4")
+ SET(DEF_DIR_EIGEN "C:\\c++\\eigen-3.3.4")
  
  IF(${ONLINE})
-	 SET(DEF_DIR_GLM "D:\\c++\\glm-0.9.8.4")
-	 SET(DEF_DIR_GLFW "D:\\c++\\glfw-3.2.1")
-	 SET(DEF_DIR_GLEW "D:\\c++\\glew-2.1.0")
+	 SET(DEF_DIR_GLM "C:\\c++\\glm-0.9.8.5")
+	 SET(DEF_DIR_GLFW "C:\\c++\\glfw-3.2.1")
+	 SET(DEF_DIR_GLEW "C:\\c++\\glew-2.1.0")
 	 ADD_DEFINITIONS(-DEOLC_ONLINE)
  ENDIF()
  
@@ -47,7 +47,7 @@ OPTION(IGL "Build with libIGL support" OFF)
  ENDIF()
  
  IF(${IGL})
-	 SET(DEF_DIR_IGL "D:\\c++\\libigl-1.2.1\\include") # Does not build static lib
+	 SET(DEF_DIR_IGL "C:\\c++\\libigl-1.2.1\\include") # Does not build static lib
 	 ADD_DEFINITIONS(-DEOLC_IGL)
  ENDIF()
  

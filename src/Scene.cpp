@@ -66,6 +66,7 @@ void Scene::step()
 	set_indices(cloth->mesh);
 	//preprocessClean(cloth->mesh);
 	//set_indices(cloth->mesh);
+	consts->fill(cloth->mesh, obs, h);
 	cloth->updateBuffers();
 	obs->step(h);
 	cls.clear();
@@ -114,6 +115,7 @@ void Scene::draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program>
 void Scene::drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const
 {
 	obs->drawSimple(MV, p);
+	consts->drawSimple(MV, p);
 	cloth->drawSimple(MV, p);
 }
 #endif // EOLC_ONLINE

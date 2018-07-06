@@ -6,11 +6,19 @@
 #include <memory>
 #include <string>
 
+#include "external\ArcSim\mesh.hpp"
+
 #define EIGEN_DONT_ALIGN_STATICALLY
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <Eigen/StdVector>
 
-class Mesh;
+#ifdef EOLC_ONLINE
+class MatrixStack;
+class Program;
+#endif // EOLC_ONLINE
+
+//class Mesh;
 class Obstacles;
 
 class Constraints
@@ -24,15 +32,20 @@ public:
 	Eigen::SparseMatrix<double> Aeq;
 	Eigen::SparseMatrix<double> Aineq;
 
-	Eigen::SparseVector<double> beq;
-	Eigen::SparseVector<double> bineq;
+	std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> > drawAineq;
 
-	std::vector<Eigen::VectorXd> constraintTable;
-	std::vector<Eigen::Vector2i> obsTable;
+	Eigen::VectorXd beq;
+	Eigen::VectorXd bineq;
+
+	Eigen::MatrixXd constraintTable;
 
 	void init(const std::shared_ptr<Obstacles> obs);
 	void updateTable(const std::shared_ptr<Obstacles> obs);
-	void fill(const Mesh& mesh, const std::shared_ptr<Obstacles> obs);
+	void fill(const Mesh& mesh, const std::shared_ptr<Obstacles> obs, double h);
+
+#ifdef EOLC_ONLINE
+	void drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
+#endif // EOLC_ONLINE
 };
 
 #endif

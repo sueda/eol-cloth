@@ -3,6 +3,8 @@
 #define __CONVERSIONS__
 
 #include "external\ArcSim\vectors.hpp"
+
+#define EIGEN_DONT_ALIGN_STATICALLY
 #include <Eigen\Core>
 
 Vec2 e2v(const Eigen::Vector2d);

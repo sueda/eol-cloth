@@ -2,6 +2,8 @@
 
 #include <fstream>
 #include <iomanip>
+
+#define EIGEN_DONT_ALIGN_STATICALLY
 #include <Eigen\Dense>
 
 using namespace std;
