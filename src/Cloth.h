@@ -12,6 +12,8 @@
 // ArcSim
 #include "external/ArcSim//mesh.hpp"
 
+class Forces;
+
 #ifdef EOLC_ONLINE
 class MatrixStack;
 class Program;
@@ -53,8 +55,10 @@ public:
 	Material material;
 
 	Mesh last_mesh;
+
+	std::shared_ptr<Forces> myForces;
 	
-	Cloth() {};
+	Cloth();
 	virtual ~Cloth() {};
 
 	void build(const Eigen::Vector2i res,
@@ -66,6 +70,8 @@ public:
 	void updatePosNor();
 	void updateBuffers();
 
+	void updatePreviousMesh();
+	void velocityTransfer();
 	void step(double h);
 
 #ifdef EOLC_ONLINE

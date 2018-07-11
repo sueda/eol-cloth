@@ -300,6 +300,8 @@ void transferEoL(Node *n, Node *n0, Node *n1) {
 				if (n1->cdEdges[0] == n0->cdEdges[j]) {
 					n->EoL = true;
 					n->cdEdges = n1->cdEdges;
+					if(n0->EoL_state == Node::IsEOL && n1->EoL_state == Node::IsEOL) n->EoL_state = Node::NewEOLFromSplit;
+					else n->EoL_state = Node::NewEOL;
 					return;
 				}
 			}
@@ -309,6 +311,8 @@ void transferEoL(Node *n, Node *n0, Node *n1) {
 				if (n0->cdEdges[0] == n1->cdEdges[j]) {
 					n->EoL = true;
 					n->cdEdges = n0->cdEdges;
+					if (n0->EoL_state == Node::IsEOL && n1->EoL_state == Node::IsEOL) n->EoL_state = Node::NewEOLFromSplit;
+					else n->EoL_state = Node::NewEOL;
 					return;
 				}
 			}
@@ -316,6 +320,8 @@ void transferEoL(Node *n, Node *n0, Node *n1) {
 		else if (n0->cdEdges[0] == n1->cdEdges[0]) {
 			n->EoL = true;
 			n->cdEdges = n0->cdEdges;
+			if (n0->EoL_state == Node::IsEOL && n1->EoL_state == Node::IsEOL) n->EoL_state = Node::NewEOLFromSplit;
+			else n->EoL_state = Node::NewEOL;
 			return;
 		}
 	}

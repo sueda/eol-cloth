@@ -606,11 +606,11 @@ namespace btc
 		const MatrixXd &verts2,
 		const MatrixXi &faces2,
 		const VectorXi &isEOL2,
-		bool justVerts2)
+		bool EOL)
 	{
 		vector<shared_ptr<Edge> > edges2;
 		createEdges(edges2, faces2, verts2);
-		boxTriCollision(collisions, threshold, whd1, E1, verts2, faces2, isEOL2, justVerts2, edges2);
+		boxTriCollision(collisions, threshold, whd1, E1, verts2, faces2, isEOL2, EOL, edges2);
 	}
 
 	void boxTriCollision(
@@ -621,7 +621,7 @@ namespace btc
 		const MatrixXd &verts2_,
 		const MatrixXi &faces2,
 		const VectorXi &isEOL2_,
-		bool justVerts2,
+		bool EOL,
 		const vector<shared_ptr<Edge> > &edges2)
 	{
 		// Make a copy first so we can perturb
@@ -670,92 +670,95 @@ namespace btc
 		MatrixXd aabbE2(6, edges2.size());
 		build_AABB_E(aabbE2, verts2, edges2);
 
-		// Vertex2-Triangle1
-		for (int i2 = 0; i2 < verts2.cols(); ++i2) {
-			Vector3d x2 = verts2.block<3, 1>(0, i2);
-			// AABB test: check Vertex2 against Body1
-			Matrix<double, 6, 1> aabbV2;
-			aabbV2.segment<3>(0) = x2;
-			aabbV2.segment<3>(3) = x2;
-			if (!check_AABB(aabbV2, aabbB1)) {
-				continue;
-			}
-			shared_ptr<Collision> cmin = NULL;
-			// Is this vertex inside Body2? If Body2 is convex, we can verify this
-			// by doing a half-space test on all the triangles from Body2.
-			bool inside = true;
-			for (int j1 = 0; j1 < faces1.cols(); ++j1) {
-				Vector3i f1 = faces1.col(j1);
-				Vector3d x1a = verts1.block<3, 1>(0, f1(0));
-				Vector3d nor = faceNors1.col(j1);
-				Vector3d dx = x2 - x1a;
-				if (nor.dot(dx) > 0.0) {
-					inside = false;
-					break;
-				}
-			}
-			if (!inside) {
-				continue;
-			}
-			for (int j1 = 0; j1 < faces1.cols(); ++j1) {
-				Vector3i f1 = faces1.col(j1);
-				Vector3d x1a = verts1.block<3, 1>(0, f1(0));
-				Vector3d x1b = verts1.block<3, 1>(0, f1(1));
-				Vector3d x1c = verts1.block<3, 1>(0, f1(2));
-				// Project x2 onto the triangle 1
-				Vector3d nor1 = faceNors1.col(j1);
-				Vector3d dx = x2 - x1a;
-				double proj = nor1.dot(dx);
-				if (proj > 0.0) {
-					// Outside the box
+		// We don't need any vert2-face1 collisions when creating conformal geometry in EOL
+		if (!EOL) {
+			// Vertex2-Triangle1
+			for (int i2 = 0; i2 < verts2.cols(); ++i2) {
+				Vector3d x2 = verts2.block<3, 1>(0, i2);
+				// AABB test: check Vertex2 against Body1
+				Matrix<double, 6, 1> aabbV2;
+				aabbV2.segment<3>(0) = x2;
+				aabbV2.segment<3>(3) = x2;
+				if (!check_AABB(aabbV2, aabbB1)) {
 					continue;
 				}
-				Vector3d x1 = x2 - proj*nor1;
-				dx = x2 - x1;
-				double dist = dx.norm();
-				if (dist > 5.0*threshold) {
-					// Too far
-					continue;
-				}
-				double u, v;
-				barycentric(u, v, x1a, x1b, x1c, x1);
-				double w = 1.0 - u - v;
-				if (u < 0.0 || 1.0 < u || v < 0.0 || 1.0 < v || w < 0.0 || 1.0 < w) {
-					// Projected point is outside the triangle
-					continue;
-				}
-				// Compute cloth normal
-				Vector3d nor2 = faceNors2.col(i2);
-				if (nor2.dot(nor1) < 0.0) {
-					nor2 = -nor2;
-				}
-				// Create contact object
-				auto c = make_shared<Collision>();
-				c->dist = dist;
-				c->nor1 = nor1;
-				c->nor2 = nor2;
-				c->pos1 = x1;
-				c->pos2 = x2;
-				c->count1 = 3;
-				c->count2 = 1;
-				c->verts1 = f1;
-				c->verts2 << i2, -1, -1;
-				c->weights1 << u, v, w;
-				c->weights2 << 1.0, 0.0, 0.0;
-				c->tri1 = j1;
-				c->tri2 = -1;
-				// Is this the closest one so far?
-				if (cmin == NULL) {
-					cmin = c;
-				}
-				else {
-					if (c->dist < cmin->dist) {
-						cmin = c;
+				shared_ptr<Collision> cmin = NULL;
+				// Is this vertex inside Body2? If Body2 is convex, we can verify this
+				// by doing a half-space test on all the triangles from Body2.
+				bool inside = true;
+				for (int j1 = 0; j1 < faces1.cols(); ++j1) {
+					Vector3i f1 = faces1.col(j1);
+					Vector3d x1a = verts1.block<3, 1>(0, f1(0));
+					Vector3d nor = faceNors1.col(j1);
+					Vector3d dx = x2 - x1a;
+					if (nor.dot(dx) > 0.0) {
+						inside = false;
+						break;
 					}
 				}
-			}
-			if (cmin != NULL) {
-				collisions.push_back(cmin);
+				if (!inside) {
+					continue;
+				}
+				for (int j1 = 0; j1 < faces1.cols(); ++j1) {
+					Vector3i f1 = faces1.col(j1);
+					Vector3d x1a = verts1.block<3, 1>(0, f1(0));
+					Vector3d x1b = verts1.block<3, 1>(0, f1(1));
+					Vector3d x1c = verts1.block<3, 1>(0, f1(2));
+					// Project x2 onto the triangle 1
+					Vector3d nor1 = faceNors1.col(j1);
+					Vector3d dx = x2 - x1a;
+					double proj = nor1.dot(dx);
+					if (proj > 0.0) {
+						// Outside the box
+						continue;
+					}
+					Vector3d x1 = x2 - proj*nor1;
+					dx = x2 - x1;
+					double dist = dx.norm();
+					if (dist > 5.0*threshold) {
+						// Too far
+						continue;
+					}
+					double u, v;
+					barycentric(u, v, x1a, x1b, x1c, x1);
+					double w = 1.0 - u - v;
+					if (u < 0.0 || 1.0 < u || v < 0.0 || 1.0 < v || w < 0.0 || 1.0 < w) {
+						// Projected point is outside the triangle
+						continue;
+					}
+					// Compute cloth normal
+					Vector3d nor2 = faceNors2.col(i2);
+					if (nor2.dot(nor1) < 0.0) {
+						nor2 = -nor2;
+					}
+					// Create contact object
+					auto c = make_shared<Collision>();
+					c->dist = dist;
+					c->nor1 = nor1;
+					c->nor2 = nor2;
+					c->pos1 = x1;
+					c->pos2 = x2;
+					c->count1 = 3;
+					c->count2 = 1;
+					c->verts1 = f1;
+					c->verts2 << i2, -1, -1;
+					c->weights1 << u, v, w;
+					c->weights2 << 1.0, 0.0, 0.0;
+					c->tri1 = j1;
+					c->tri2 = -1;
+					// Is this the closest one so far?
+					if (cmin == NULL) {
+						cmin = c;
+					}
+					else {
+						if (c->dist < cmin->dist) {
+							cmin = c;
+						}
+					}
+				}
+				if (cmin != NULL) {
+					collisions.push_back(cmin);
+				}
 			}
 		}
 
@@ -1066,7 +1069,7 @@ namespace btc
 		const Eigen::MatrixXd &norms1,
 		const Eigen::MatrixXd &verts2_,
 		const Eigen::MatrixXi &faces2,
-		bool justVerts2)
+		bool EOL)
 	{
 		// Make a copy first so we can perturb
 		MatrixXd verts2 = verts2_;
@@ -1091,119 +1094,119 @@ namespace btc
 		Matrix<double, 6, 1> aabbB2;
 		build_AABB_B(aabbB2, verts2);
 
-		for (int i2 = 0; i2 < verts2.cols(); ++i2) {
-			Vector3d x2 = verts2.block<3, 1>(0, i2);
-			shared_ptr<Collision> cmin = NULL;
-			for (int i1 = 0; i1 < verts1.cols(); ++i1) {
-				Vector3d x1 = verts1.block<3, 1>(0, i1);
-				Vector3d dx = x2 - x1;
-				double dist = dx.norm();
-				if (dist < threshold) {
-					Vector3d nor1 = norms1.block<3, 1>(0, i1); // vertex normal
-					// Create contact object
-					auto c = make_shared<Collision>();
-					c->dist = dist;
-					c->nor1 = nor1;
-					c->nor2 = nor1; // We don't care so hack
-					c->pos1 = x1;
-					c->pos2 = x2;
-					c->count1 = 3;
-					c->count2 = 1;
-					c->verts1 << i1, -1, -1;
-					c->verts2 << i2, -1, -1;
-					c->weights1 << 1.0, 0.0, 0.0;
-					c->weights2 << 1.0, 0.0, 0.0;
-					c->tri1 = -1;
-					c->tri2 = -1;
-					// Is this the closest one so far?
-					if (cmin == NULL) {
-						cmin = c;
-					}
-					else {
-						if (c->dist < cmin->dist) {
+		if (EOL) {
+			for (int i2 = 0; i2 < verts2.cols(); ++i2) {
+				Vector3d x2 = verts2.block<3, 1>(0, i2);
+				shared_ptr<Collision> cmin = NULL;
+				for (int i1 = 0; i1 < verts1.cols(); ++i1) {
+					Vector3d x1 = verts1.block<3, 1>(0, i1);
+					Vector3d dx = x2 - x1;
+					double dist = dx.norm();
+					if (dist < threshold) {
+						Vector3d nor1 = norms1.block<3, 1>(0, i1); // vertex normal
+						// Create contact object
+						auto c = make_shared<Collision>();
+						c->dist = dist;
+						c->nor1 = nor1;
+						c->nor2 = nor1; // We don't care so hack
+						c->pos1 = x1;
+						c->pos2 = x2;
+						c->count1 = 3;
+						c->count2 = 1;
+						c->verts1 << i1, -1, -1;
+						c->verts2 << i2, -1, -1;
+						c->weights1 << 1.0, 0.0, 0.0;
+						c->weights2 << 1.0, 0.0, 0.0;
+						c->tri1 = -1;
+						c->tri2 = -1;
+						// Is this the closest one so far?
+						if (cmin == NULL) {
 							cmin = c;
 						}
-					}
-				}
-			}
-			if (cmin != NULL) {
-				collisions.push_back(cmin);
-			}
-		}
-
-		if (!justVerts2) {
-			// Vertex1-Triangle2
-			for (int i1 = 0; i1 < verts1.cols(); ++i1) {
-				const Vector3d &x1 = verts1.block<3, 1>(0, i1);
-				// AABB test: check Vertex1 against Body2
-				Matrix<double, 6, 1> aabbV1;
-				aabbV1.segment<3>(0) = x1;
-				aabbV1.segment<3>(3) = x1;
-				if (!check_AABB(aabbV1, aabbB2)) {
-					continue;
-				}
-				shared_ptr<Collision> cmin = NULL;
-				Vector3d nor1 = norms1.block<3, 1>(0, i1); // vertex normal
-				for (int j2 = 0; j2 < faces2.cols(); ++j2) {
-					const Vector3i &f2 = faces2.col(j2);
-					const Vector3d &x2a = verts2.block<3, 1>(0, f2(0));
-					const Vector3d &x2b = verts2.block<3, 1>(0, f2(1));
-					const Vector3d &x2c = verts2.block<3, 1>(0, f2(2));
-					Vector3d nor2 = faceNors2.col(j2);
-					// Make sure the triangle normal points outward wrt the box.
-					if (nor1.dot(nor2) < 0.0) {
-						nor2 = -nor2;
-					}
-					// Is x1 on the correct side?
-					Vector3d dx = x1 - x2a;
-					double proj = dx.dot(nor2);
-					if (proj < 0.0) {
-						continue;
-					}
-					// Project x1 onto the triangle
-					Vector3d x2 = x1 - proj*nor2;
-					dx = x2 - x1;
-					double dist = dx.norm();
-					if (dist > 5.0*threshold) {
-						// Too far
-						continue;
-					}
-					// Compute barycentric coords of x1 wrt tri2
-					double u, v;
-					barycentric(u, v, x2a, x2b, x2c, x1);
-					double w = 1.0 - u - v;
-					if (u < 0.0 || 1.0 < u || v < 0.0 || 1.0 < v || w < 0.0 || 1.0 < w) {
-						// Projected point is outside the triangle
-						continue;
-					}
-					// Create contact object
-					auto c = make_shared<Collision>();
-					c->dist = dist;
-					c->nor1 = nor1;
-					c->nor2 = nor2;
-					c->pos1 = x1;
-					c->pos2 = x2;
-					c->count1 = 1;
-					c->count2 = 3;
-					c->verts1 << i1, -1, -1;
-					c->verts2 = f2;
-					c->weights1 << 1.0, 0.0, 0.0;
-					c->weights2 << u, v, w;
-					c->tri1 = -1;
-					c->tri2 = j2;
-					// Is this the closest one so far?
-					if (cmin == NULL) {
-						cmin = c;
-					}
-					else {
-						if (c->dist < cmin->dist) {
-							cmin = c;
+						else {
+							if (c->dist < cmin->dist) {
+								cmin = c;
+							}
 						}
 					}
 				}
 				if (cmin != NULL) {
 					collisions.push_back(cmin);
 				}
+			}
+		}
+
+		// Vertex1-Triangle2
+		for (int i1 = 0; i1 < verts1.cols(); ++i1) {
+			const Vector3d &x1 = verts1.block<3, 1>(0, i1);
+			// AABB test: check Vertex1 against Body2
+			Matrix<double, 6, 1> aabbV1;
+			aabbV1.segment<3>(0) = x1;
+			aabbV1.segment<3>(3) = x1;
+			if (!check_AABB(aabbV1, aabbB2)) {
+				continue;
+			}
+			shared_ptr<Collision> cmin = NULL;
+			Vector3d nor1 = norms1.block<3, 1>(0, i1); // vertex normal
+			for (int j2 = 0; j2 < faces2.cols(); ++j2) {
+				const Vector3i &f2 = faces2.col(j2);
+				const Vector3d &x2a = verts2.block<3, 1>(0, f2(0));
+				const Vector3d &x2b = verts2.block<3, 1>(0, f2(1));
+				const Vector3d &x2c = verts2.block<3, 1>(0, f2(2));
+				Vector3d nor2 = faceNors2.col(j2);
+				// Make sure the triangle normal points outward wrt the box.
+				if (nor1.dot(nor2) < 0.0) {
+					nor2 = -nor2;
+				}
+				// Is x1 on the correct side?
+				Vector3d dx = x1 - x2a;
+				double proj = dx.dot(nor2);
+				if (proj < 0.0) {
+					continue;
+				}
+				// Project x1 onto the triangle
+				Vector3d x2 = x1 - proj*nor2;
+				dx = x2 - x1;
+				double dist = dx.norm();
+				if (dist > 5.0*threshold) {
+					// Too far
+					continue;
+				}
+				// Compute barycentric coords of x1 wrt tri2
+				double u, v;
+				barycentric(u, v, x2a, x2b, x2c, x1);
+				double w = 1.0 - u - v;
+				if (u < 0.0 || 1.0 < u || v < 0.0 || 1.0 < v || w < 0.0 || 1.0 < w) {
+					// Projected point is outside the triangle
+					continue;
+				}
+				// Create contact object
+				auto c = make_shared<Collision>();
+				c->dist = dist;
+				c->nor1 = nor1;
+				c->nor2 = nor2;
+				c->pos1 = x1;
+				c->pos2 = x2;
+				c->count1 = 1;
+				c->count2 = 3;
+				c->verts1 << i1, -1, -1;
+				c->verts2 = f2;
+				c->weights1 << 1.0, 0.0, 0.0;
+				c->weights2 << u, v, w;
+				c->tri1 = -1;
+				c->tri2 = j2;
+				// Is this the closest one so far?
+				if (cmin == NULL) {
+					cmin = c;
+				}
+				else {
+					if (c->dist < cmin->dist) {
+						cmin = c;
+					}
+				}
+			}
+			if (cmin != NULL) {
+				collisions.push_back(cmin);
 			}
 		}
 

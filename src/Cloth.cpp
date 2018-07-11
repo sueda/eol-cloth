@@ -1,8 +1,11 @@
 #include "Cloth.h"
 #include "conversions.h"
+#include "Forces.h"
+#include "UtilEOL.h"
 
 #include "external\ArcSim\mesh.hpp"
 #include "external\ArcSim\io.hpp"
+#include "external\ArcSim\geometry.hpp"
 
 #ifdef EOLC_ONLINE
 #define GLM_FORCE_RADIANS
@@ -17,6 +20,11 @@
 
 using namespace std;
 using namespace Eigen;
+
+Cloth::Cloth()
+{
+	myForces = make_shared<Forces>();
+}
 
 void Cloth::build(const Vector2i res,
 	const Vector3d &x00,
@@ -146,6 +154,146 @@ void Cloth::updateBuffers()
 
 	// Update position and normal buffers
 	updatePosNor();
+}
+
+void Cloth::updatePreviousMesh()
+{
+	delete_mesh(last_mesh);
+	last_mesh = deep_copy(mesh);
+}
+
+void Cloth::velocityTransfer()
+{
+	v.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
+	v.setZero();
+
+	// Loop through all of our nodes and update their velocities
+	for (int n = 0; n < mesh.nodes.size(); n++) {
+		Node* node = mesh.nodes[n];
+		Vert* vert = node->verts[0];
+
+		// Search through the unremeshed mesh to see if this node existed before, or was just introduced it this step
+		// TODO:: Can more than one node fall within the close range? 
+		bool found = false;
+		double how_close = 1e-6;
+		int closest = -1;
+		for (int j = 0; j < last_mesh.nodes.size(); j++) {
+			double dist = unsigned_vv_distance(vert->u, last_mesh.nodes[j]->verts[0]->u);
+			if (unsigned_vv_distance(vert->u, last_mesh.nodes[j]->verts[0]->u) < how_close) {
+				how_close = dist;
+				closest = j;
+				found = true;
+				break;
+			}
+		}
+
+		// If the node existed before do one of two things
+		if (found) {
+			// If the node was EOL but is no longer, we have to transfer it's EOL components back into fully LAG
+			if (node->EoL_state == Node::WasEOL) {
+				node->EoL_state = Node::IsLAG;
+				MatrixXd F = MatrixXd::Zero(3, 2);
+				Vector3d nodev = v2e(node->v);
+				Vector2d nodeV = v322e(vert->v);
+				for (int j = 0; j < vert->adjf.size(); j++) {
+					F += incedent_angle(vert, vert->adjf[j]) * deform_grad(vert->adjf[j]);
+				}
+				is_seam_or_boundary(node) ? F *= (1 / M_PI) : F *= (1 / (2 * M_PI));
+				Vector3d newvL = nodev - F*nodeV;
+				v(3 * n) = newvL(0);
+				v(3 * n + 1) = newvL(1);
+				v(3 * n + 2) = newvL(2);
+			}
+			// If it already existed, just pull it's old information
+			else {
+				// TODO:: The node will have the data if it gets here correct?
+				v(3 * n) = node->v[0];
+				v(3 * n + 1) = node->v[1];
+				v(3 * n + 2) = node->v[2];
+				if (node->EoL) {
+					v(mesh.nodes.size() * 3 + node->EoL_index * 2) = vert->v[0];
+					v(mesh.nodes.size() * 3 + node->EoL_index * 2 + 1) = vert->v[1];
+				}
+			}
+		}
+
+		// If the node did not exist We have to do one of four things
+		else {
+			// If its a LAG point we can just use barycentric averaging
+			if (!node->EoL) {
+				Face* old_face = get_enclosing_face(last_mesh, Vec2(vert->u[0], vert->u[1]));
+				Vec3 bary = get_barycentric_coords(Vec2(vert->u[0], vert->u[1]), old_face);
+				Vector3d vwA = v2e(old_face->v[0]->node->v);
+				Vector3d vwB = v2e(old_face->v[1]->node->v);
+				Vector3d vwC = v2e(old_face->v[2]->node->v);
+				// If any of its surrounding points are EOL, the Eulerian component velocity component must be taken into account
+				if (old_face->v[0]->node->EoL) vwA += -deform_grad(old_face) * v322e(old_face->v[0]->v);
+				if (old_face->v[1]->node->EoL) vwB += -deform_grad(old_face) * v322e(old_face->v[1]->v);
+				if (old_face->v[2]->node->EoL) vwC += -deform_grad(old_face) * v322e(old_face->v[2]->v);
+				Vector3d v_new_world = bary[0] * vwA + bary[1] * vwB + bary[2] * vwC;
+				node->v = e2v(v_new_world);
+				v(3 * n) = v_new_world(0);
+				v(3 * n + 1) = v_new_world(1);
+				v(3 * n + 2) = v_new_world(2);
+			}
+			else {
+				// If the new EOL was the result of a conserved edge split, we average the components for efficiency 
+				// For this to happen neither adjacent nodes can be NewEOLs, otherwise the averaging would be wrong
+				if (node->EoL_state == Node::NewEOLFromSplit) {
+					Vector3d newvL = Vector3d::Zero();
+					Vector3d newvE = Vector3d::Zero();
+					for (int e = 0; e < node->adje.size(); e++) {
+						if (node->adje[e]->preserve) {
+							Node* adjn = other_node(node->adje[e], node);
+							newvL += v2e(adjn->v);
+							newvE += v2e(adjn->verts[0]->v);
+						}
+					}
+					newvL /= 2.0;
+					newvE /= 2.0; // Should only ever be two here..?
+
+					// We put in the new averaged velocities
+					v(mesh.nodes.size() * 3 + node->EoL_index * 2) = newvE(0);
+					v(mesh.nodes.size() * 3 + node->EoL_index * 2 + 1) = newvE(1);
+					v(3 * n) = newvL(0);
+					v(3 * n + 1) = newvL(1);
+					v(3 * n + 2) = newvL(2);
+
+				}
+				// If this is brand new EOL with no previuosly known information, we calculate its world velocity and distribute it
+				else {
+					Face* old_face = get_enclosing_face(last_mesh, Vec2(vert->u[0], vert->u[1]));
+					Matrix2d ftf = deform_grad(old_face).transpose() * deform_grad(old_face);
+					Vector2d dtv = -deform_grad(old_face).transpose() * v2e(node->v);
+
+					// We set up a simple KKT system with the purpose of putting as much world velocity as possible into the Eulerian component
+					MatrixXd KKTl = MatrixXd::Zero(4, 4);
+					KKTl.block(0, 0, 2, 2) = ftf;
+					KKTl.block<2, 2>(0, 2) = Matrix2d::Identity();
+					KKTl.block<2, 2>(2, 0) = Matrix2d::Identity();
+					VectorXd KKTr(4);
+					KKTr << dtv, VectorXd::Zero(2);
+					ConjugateGradient<MatrixXd, Lower | Upper> cg;
+					cg.compute(KKTl);
+					VectorXd newvE = cg.solve(KKTr);
+
+					// This gives us the Eulerian component
+					vert->v = Vec3(newvE(0), newvE(1), 0.0);
+					v(mesh.nodes.size() * 3 + node->EoL_index * 2) = newvE(0);
+					v(mesh.nodes.size() * 3 + node->EoL_index * 2 + 1) = newvE(1);
+
+					// We use the deformation gradient to extract the lagrangian component
+					Vector3d newvL = v2e(node->v) + -deform_grad(old_face) * newvE.segment<2>(0);
+					node->v = e2v(newvL);
+					v(3 * n) = newvL(0);
+					v(3 * n + 1) = newvL(1);
+					v(3 * n + 2) = newvL(2);
+				}
+			}
+		}
+	}
+
+	myForces->fill(mesh, material, .5);
 }
 
 void Cloth::step(double h)

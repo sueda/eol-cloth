@@ -48,12 +48,22 @@ void Scene::init(const bool online, const bool exportObjs)
 	}
 }
 
+void printstate(Mesh& mesh)
+{
+	for (int n = 0; n < mesh.nodes.size(); n++) {
+		if (mesh.nodes[n]->EoL) {
+			cout << mesh.nodes[n]->EoL_state << endl;
+		}
+	}
+}
+
 void Scene::step()
 {
 	if (part != 0) {
 		cout << "Please finish the partial step before making a full step" << endl;
 		return;
 	}
+	cloth->updatePreviousMesh();
 	dynamic_remesh(cloth->mesh);
 	set_indices(cloth->mesh);
 	CD(cloth->mesh, obs, cls);
@@ -67,6 +77,8 @@ void Scene::step()
 	//preprocessClean(cloth->mesh);
 	//set_indices(cloth->mesh);
 	consts->fill(cloth->mesh, obs, h);
+	//printstate(cloth->mesh);
+	cloth->velocityTransfer();
 	cloth->updateBuffers();
 	obs->step(h);
 	cls.clear();

@@ -78,6 +78,10 @@ struct Node {
 		FlagNone = 0, FlagActive = 1, FlagMayBreak = 2,
 		FlagResolveUni = 4, FlagResolveMax = 8
 	};
+	enum NodeEOLState {
+		IsLAG = 0,
+		NewEOL = 1, NewEOLFromSplit = 2, IsEOL = 3, WasEOL = 4
+	};
 
 	int uuid;
 
@@ -85,6 +89,7 @@ struct Node {
 
 	bool EoL;
 	int EoL_index;
+	int EoL_state;
 	int cornerID;
 	std::vector<int> cdEdges;
 
@@ -107,7 +112,7 @@ struct Node {
 	Node() : uuid(uuid_src++), label(0), flag(0), preserve(false), index(-1), a(0), m(0) {}
 	explicit Node(const Vec3 &y, const Vec3 &x, const Vec3 &v, int label, int flag,
 		bool preserve) :
-		EoL(false), EoL_index(-1), cornerID(-1), // EoL specifics
+		EoL(false), EoL_index(-1), EoL_state(0), cornerID(-1), // EoL specifics
 		uuid(uuid_src++), mesh(0), label(label), flag(flag), y(y), x(x), x0(x), v(v), preserve(preserve),
 		curvature(0) {}
 
@@ -215,6 +220,7 @@ void compute_ms_data(Node* node);
 
 inline Edge* get_opp_edge(const Face* face, const Node* opp);
 inline Vert* get_vert(const Face* face, const Node* node);
+inline Vert* get_other_vert(const Face* face, const Vert* vert0, const Vert* vert1);
 inline Edge *get_edge(const Node *node0, const Node *node1);
 inline Vert *edge_vert(const Edge *edge, int side, int i);
 inline Vert *edge_opp_vert(const Edge *edge, int side);
@@ -265,6 +271,12 @@ inline Mat3x3 derivative(const Vec3& w0, const Vec3& w1,
 inline Vert* get_vert(const Face* face, const Node* node) {
 	if (face->v[0]->node == node) return face->v[0];
 	return face->v[1]->node == node ? face->v[1] : face->v[2];
+}
+
+inline Vert* get_other_vert(const Face* face, const Vert* vert0, const Vert* vert1) {
+	if (face->v[0] != vert0 && face->v[0] != vert1) return face->v[0];
+	if (face->v[1] != vert0 && face->v[1] != vert1) return face->v[1];
+	return face->v[2];
 }
 
 inline Node *other_node(const Edge* edge, const Node* node0) {

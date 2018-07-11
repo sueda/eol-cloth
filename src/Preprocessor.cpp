@@ -2,6 +2,7 @@
 
 #include "remeshExtension.h"
 #include "matlabOutputs.h"
+#include "conversions.h"
 
 #include "external\ArcSim\geometry.hpp"
 #include "external\ArcSim\subset.hpp"
@@ -26,10 +27,26 @@ double linepoint(const Vec3 &A, const Vec3 &B, const Vec3 &P)
 	return apab / ab2;
 }
 
+void markWasEOL(Mesh& mesh) {
+	for (int n = 0; n < mesh.nodes.size(); n++) {
+		if (mesh.nodes[n]->EoL) {
+			mesh.nodes[n]->EoL_state = Node::WasEOL;
+		}
+	}
+}
+
 void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 {
 	for (int i = 0; i < cls.size(); i++) {
-		if (cls[i]->count1 == 1 && cls[i]->count2 == 3) {
+		// EOL nodes will be detected here
+		// If they aren't found then the EOL node has been lifted off and we need to take note
+		if (cls[i]->count1 == 3 && cls[i]->count2 == 1) {
+			Node* node = mesh.nodes[cls[i]->verts2(0)];
+			if (node->EoL) {
+				node->EoL_state = Node::IsEOL;
+			}
+		}
+		else if (cls[i]->count1 == 1 && cls[i]->count2 == 3) {
 			if ((mesh.nodes[cls[i]->verts2(0)]->EoL && mesh.nodes[cls[i]->verts2(0)]->cornerID == cls[i]->verts1(0)) ||
 				(mesh.nodes[cls[i]->verts2(1)]->EoL && mesh.nodes[cls[i]->verts2(1)]->cornerID == cls[i]->verts1(0)) ||
 				(mesh.nodes[cls[i]->verts2(2)]->EoL && mesh.nodes[cls[i]->verts2(2)]->cornerID == cls[i]->verts1(0))) continue;
@@ -99,9 +116,11 @@ void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 
 			Node *n = mesh.nodes.back();
 			n->EoL = true;
+			n->EoL_state = Node::NewEOL;
 			n->preserve = true;
 			n->cornerID = cls[i]->verts1(0);
 			n->cdEdges = cls[i]->edge1;
+			n->x = e2v(cls[i]->pos1_); // We want to offset the node slightly inside the obect so it gets detected by the CD until it moves out on it's own
 		}
 		if (cls[i]->count1 == 2 && cls[i]->count2 == 2) {
 			// TODO:: Is this enough of a check?
@@ -167,7 +186,23 @@ void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 
 			Node *n = mesh.nodes.back();
 			n->EoL = true;
+			n->EoL_state = Node::NewEOL;
 			n->cdEdges = cls[i]->edge1;
+			n->x = e2v(cls[i]->pos1_); // We want to offset the node slightly inside the obect so it gets detected by the CD until it moves out on it's own
+		}
+	}
+}
+
+void revertWasEOL(Mesh& mesh)
+{
+	// If something is still marked as WasEOL then it has lifted off
+	for (int n = 0; n < mesh.nodes.size(); n++) {
+		if (mesh.nodes[n]->EoL_state == Node::WasEOL) {
+			Node* node = mesh.nodes[n];
+			node->EoL = false;
+			node->preserve = false;
+			node->cornerID = -1;
+			node->cdEdges.clear();
 		}
 	}
 }
@@ -587,16 +622,18 @@ void preprocess(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 	//c1->edge1.push_back(0);
 	//test.push_back(c1);
 
-	for (int i = 0; i < mesh.nodes.size(); i++) {
-		mesh.nodes[i]->EoL = false;
-		mesh.nodes[i]->cornerID = -1;
-		mesh.nodes[i]->cdEdges.clear();
-	}
-	for (int i = 0; i < mesh.edges.size(); i++) {
-		mesh.edges[i]->preserve = false;
-	}
+	//for (int i = 0; i < mesh.nodes.size(); i++) {
+	//	mesh.nodes[i]->EoL = false;
+	//	mesh.nodes[i]->cornerID = -1;
+	//	mesh.nodes[i]->cdEdges.clear();
+	//}
+	//for (int i = 0; i < mesh.edges.size(); i++) {
+	//	mesh.edges[i]->preserve = false;
+	//}
 
+	markWasEOL(mesh);
 	addGeometry(mesh, cls);
+	revertWasEOL(mesh);
 
 	markPreserve(mesh);
 

@@ -18,6 +18,7 @@
 #include "Box.h"
 #include "Points.h"
 #include "Rigid.h"
+#include "Collisions.h"
 //#include "external\ArcSim\mesh.hpp"
 #include "external\ArcSim\util.hpp"
 
@@ -273,8 +274,52 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 	}
 
 	// CD2
-	// We use another collision detection step both so we can run a non EOL simulation,
-	// but also so we can revert parts of EOL simulation to traditional LAG
+	// We use another collision detection step for 3 reasons
+	// - We need to detect Cloth-vert to Box-face collisions post remeshing
+	// - If we run a non EOL simulation we want our constraints to be based on remeshed geometry,
+	// - We want to revert parts of EOL simulation to traditional LAG
+	vector<shared_ptr<btc::Collision> > clsLAG;
+	CD2(mesh, obs, clsLAG);
+	for (int i = 0; i < clsLAG.size(); i++) {
+		if (clsLAG[i]->count1 == 3 && clsLAG[i]->count2 == 1) {
+			if (mesh.nodes[clsLAG[i]->verts2(0)]->EoL) continue;
+			Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(0) * 3, -clsLAG[i]->nor1(0)));
+			Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(0) * 3 + 1, -clsLAG[i]->nor1(1)));
+			Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(0) * 3 + 2, -clsLAG[i]->nor1(2)));
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			ineqsize++;
+		}
+		else if (clsLAG[i]->count1 == 2 && clsLAG[i]->count2 == 2) {
+			if (mesh.nodes[clsLAG[i]->verts2(0)]->EoL ||
+				mesh.nodes[clsLAG[i]->verts2(1)]->EoL) continue;
+			for (int j = 0; j < 2; j++) {
+				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3, -clsLAG[i]->nor2(0) * clsLAG[i]->weights2(j)));
+				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 1, -clsLAG[i]->nor2(1) * clsLAG[i]->weights2(j)));
+				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 2, -clsLAG[i]->nor2(2) * clsLAG[i]->weights2(j)));
+			}
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			ineqsize++;
+		}
+		else if (clsLAG[i]->count1 == 1 && clsLAG[i]->count2 == 3) {
+			if (mesh.nodes[clsLAG[i]->verts2(0)]->EoL ||
+				mesh.nodes[clsLAG[i]->verts2(1)]->EoL ||
+				mesh.nodes[clsLAG[i]->verts2(2)]->EoL) continue;
+			for (int j = 0; j < 3; j++) {
+				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3, -clsLAG[i]->nor2(0) * clsLAG[i]->weights2(j)));
+				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 1, -clsLAG[i]->nor2(1) * clsLAG[i]->weights2(j)));
+				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 2, -clsLAG[i]->nor2(2) * clsLAG[i]->weights2(j)));
+			}
+			cout << clsLAG[i]->nor2 << endl;
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
+			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			ineqsize++;
+		}
+	}
 
 	Aeq.resize(eqsize, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
 	Aineq.resize(ineqsize, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);

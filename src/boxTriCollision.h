@@ -124,7 +124,7 @@ namespace btc
 		const Eigen::MatrixXd &verts2,
 		const Eigen::MatrixXi &faces2,
 		const Eigen::VectorXi &isEOL2,
-		bool justVerts2);
+		bool EOL);
 
 	/**
 	* Same as above, but doesn't create the edge structure. If the edge structure
@@ -139,7 +139,7 @@ namespace btc
 		const Eigen::MatrixXd &verts2,
 		const Eigen::MatrixXi &faces2,
 		const Eigen::VectorXi &isEOL2,
-		bool justVerts2,
+		bool EOL,
 		const std::vector<std::shared_ptr<Edge> > &edges2);
 
 	///////////////////////////////////////////////////////////////////////////////
@@ -151,7 +151,7 @@ namespace btc
 		const Eigen::MatrixXd &norms1,
 		const Eigen::MatrixXd &verts2,
 		const Eigen::MatrixXi &faces2,
-		bool justVerts2);
+		bool EOL);
 
 }
 
