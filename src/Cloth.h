@@ -12,7 +12,10 @@
 // ArcSim
 #include "external/ArcSim//mesh.hpp"
 
+class Obstacles;
+class Constraints;
 class Forces;
+class GeneralizedSolver;
 
 #ifdef EOLC_ONLINE
 class MatrixStack;
@@ -56,6 +59,7 @@ public:
 
 	Mesh last_mesh;
 
+	std::shared_ptr<Constraints> consts;
 	std::shared_ptr<Forces> myForces;
 	
 	Cloth();
@@ -72,7 +76,8 @@ public:
 
 	void updatePreviousMesh();
 	void velocityTransfer();
-	void step(double h);
+	void step(std::shared_ptr<GeneralizedSolver> gs, std::shared_ptr<Obstacles> obs, const Eigen::Vector3d& grav, double h);
+	void solve(std::shared_ptr<GeneralizedSolver> gs, double h);
 
 #ifdef EOLC_ONLINE
 	void init();

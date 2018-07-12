@@ -51,7 +51,7 @@ Matrix2d poldec(Matrix2d M) {
 	return Q;
 }
 
-void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, double h)
+void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, const Vector3d& grav, double h)
 {
 	for (int i = 0; i < mesh.faces.size(); i++) {
 		Face* face = mesh.faces[i];
@@ -76,6 +76,8 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, d
 		Map<Vector2d>(Xa, 2) = tXa;
 		Map<Vector2d>(Xb, 2) = tXb;
 		Map<Vector2d>(Xc, 2) = tXc;
+
+		Map<Vector3d>(g, grav.rows(), grav.cols()) = grav;
 
 		MatrixXd Dxt(3, 2);
 		MatrixXd DX(2, 2);
@@ -959,14 +961,14 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 	}
 }
 
-void Forces::fill(const Mesh& mesh, const Material& mat, double h)
+void Forces::fill(const Mesh& mesh, const Material& mat, const Vector3d& grav, double h)
 {
 	f.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
 	f.setZero();
 	vector<T> M_;
 	vector<T> MDK_;
 
-	faceBasedF(mesh, f, M_, MDK_, h);
+	faceBasedF(mesh, f, M_, MDK_, grav, h);
 	edgeBasedF(mesh, mat, f, M_, MDK_, h);
 
 	M.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);

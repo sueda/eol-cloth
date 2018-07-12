@@ -29,6 +29,9 @@ public:
 		Constraints();
 	virtual ~Constraints() {};
 
+	bool hasFixed;
+	bool hasCollisions;
+
 	Eigen::SparseMatrix<double> Aeq;
 	Eigen::SparseMatrix<double> Aineq;
 

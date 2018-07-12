@@ -10,6 +10,7 @@
 #include "Points.h"
 #include "Box.h"
 #include "Shape.h"
+#include "GeneralizedSolver.h"
 
 #include <Eigen\Core>
 
@@ -146,6 +147,34 @@ void load_genset(const shared_ptr<genSet> genset, const string &JSON_FILE)
 	genset->RESOURCE_DIR += string("/"); // Just in case
 
 	genset->printGenSet();
+}
+
+void load_solver(shared_ptr<GeneralizedSolver> gs, const Json::Value& json)
+{
+	if (!json.isString()) complain(json, "string");
+	string which = json.asString();
+	if (which == "mosek") {
+#ifndef EOLC_MOSEK
+		cout << "ERROR:" << endl;
+		cout << "You've specified using the mosek solver, but you haven't built with mosek support" << endl;
+		abort();
+#endif // !EOLC_MOSEK
+		gs->whichSolver = GeneralizedSolver::Mosek;
+	}
+	else if (which == "gurobi") {
+#ifndef EOLC_GUROBI
+		cout << "ERROR:" << endl;
+		cout << "You've specified using the gurobi solver, but you haven't built with gurobi support" << endl;
+		abort();
+#endif // !EOLC_GUROBI
+		gs->whichSolver = GeneralizedSolver::Gurobi;
+	}
+	else {
+		cout << "Unrecognized solver:" << endl;
+		cout << "	\"" << which << "\"" << endl;
+		cout << "Check spelling" << endl;
+		abort();
+	}
 }
 
 void load_matset(Material& material, const Json::Value& json)
@@ -289,7 +318,10 @@ void load_simset(shared_ptr<Scene> scene, const string &JSON_FILE)
 	}
 	file.close();
 
+	if (json.isMember("solver")) load_solver(scene->GS, json["solver"]);
+
 	parse(scene->h, json["timestep"], 0.005);
+	parse(scene->grav, json["gravity"], Vector3d(0.0, 0.0, -9.8));
 	parse(scene->EOLon, json["EOL"], false);
 
 	if (json.isMember("Cloth")) load_clothset(scene->cloth, json["Cloth"]);

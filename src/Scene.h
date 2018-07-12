@@ -15,6 +15,7 @@ class Cloth;
 class Obstacles;
 class Constraints;
 class Shape;
+class GeneralizedSolver;
 
 #ifdef EOLC_ONLINE
 class MatrixStack;
@@ -35,8 +36,6 @@ public:
 	void step();
 	void partialStep();
 
-	
-
 #ifdef EOLC_ONLINE
 	void draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
 	void drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
@@ -44,13 +43,16 @@ public:
 
 	double h;
 
+	Eigen::Vector3d grav;
+
 	bool EOLon;
 
 	int part;
 
+	std::shared_ptr<GeneralizedSolver> GS;
+
 	std::shared_ptr<Cloth> cloth;
 	std::shared_ptr<Obstacles> obs;
-	std::shared_ptr<Constraints> consts;
 	std::vector<std::shared_ptr<btc::Collision> > cls;
 	
 private:

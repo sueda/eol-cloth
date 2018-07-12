@@ -28,7 +28,9 @@
 using namespace std;
 using namespace Eigen;
 
-Constraints::Constraints()
+Constraints::Constraints() :
+	hasFixed(false),
+	hasCollisions(false)
 {
 
 }
@@ -109,6 +111,8 @@ typedef Eigen::Triplet<double> T;
 void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double h)
 {
 	updateTable(obs);
+
+	hasCollisions = false;
 
 	vector<T> Aeq_;
 	vector<T> Aineq_;
@@ -320,6 +324,8 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 			ineqsize++;
 		}
 	}
+
+	if (ineqsize > 0) hasCollisions = true;
 
 	Aeq.resize(eqsize, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
 	Aineq.resize(ineqsize, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);

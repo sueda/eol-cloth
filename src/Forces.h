@@ -35,7 +35,7 @@ public:
 	Eigen::SparseMatrix<double> M;
 	Eigen::SparseMatrix<double> MDK;
 
-	void fill(const Mesh& mesh, const Material& mat, double h);
+	void fill(const Mesh& mesh, const Material& mat, const Eigen::Vector3d& grav, double h);
 
 #ifdef EOLC_ONLINE
 	void drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;

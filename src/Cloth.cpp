@@ -1,6 +1,9 @@
 #include "Cloth.h"
 #include "conversions.h"
+#include "Obstacles.h"
+#include "Constraints.h"
 #include "Forces.h"
+#include "GeneralizedSolver.h"
 #include "UtilEOL.h"
 
 #include "external\ArcSim\mesh.hpp"
@@ -23,6 +26,7 @@ using namespace Eigen;
 
 Cloth::Cloth()
 {
+	consts = make_shared<Constraints>();
 	myForces = make_shared<Forces>();
 }
 
@@ -292,13 +296,43 @@ void Cloth::velocityTransfer()
 			}
 		}
 	}
-
-	myForces->fill(mesh, material, .5);
 }
 
-void Cloth::step(double h)
+void Cloth::solve(shared_ptr<GeneralizedSolver> gs, double h)
 {
+	VectorXd b = -(myForces->M * v + h * myForces->f);
+	bool success = gs->velocitySolve(false, consts->hasCollisions,
+		myForces->MDK, b,
+		consts->Aeq, consts->beq,
+		consts->Aineq, consts->bineq,
+		v);
+}
 
+void Cloth::step(shared_ptr<GeneralizedSolver> gs, shared_ptr<Obstacles> obs, const Vector3d& grav, double h)
+{
+	consts->fill(mesh, obs, h);
+	velocityTransfer();
+	myForces->fill(mesh, material, grav, h);
+	solve(gs, h);
+
+	for (int n = 0; n < mesh.nodes.size(); n++) {
+		Node* node = mesh.nodes[n];
+		Vert* vert = node->verts[0];
+		node->v[0] = v(n * 3);
+		node->v[1] = v(n * 3 + 1);
+		node->v[2] = v(n * 3 + 2);
+		node->x = node->x + h * node->v;
+		if (node->EoL) {
+			vert->v[0] = v(mesh.nodes.size() * 3 + node->EoL_index * 2);
+			vert->v[1] = v(mesh.nodes.size() * 3 + node->EoL_index * 2 + 1);
+			//if (mesh.nodes[i]->verts[0]->u[0] != Xmin && mesh.nodes[i]->verts[0]->u[0] != Xmax) mesh.nodes[i]->verts[0]->u[0] = mesh.nodes[i]->verts[0]->u[0] + h * mesh.nodes[i]->verts[0]->v[0];
+			//if (mesh.nodes[i]->verts[0]->u[1] != Ymin && mesh.nodes[i]->verts[0]->u[1] != Ymax) mesh.nodes[i]->verts[0]->u[1] = mesh.nodes[i]->verts[0]->u[1] + h * mesh.nodes[i]->verts[0]->v[1];
+			vert->u[0] = vert->u[0] + h * vert->v[0];
+			vert->u[1] = vert->u[1] + h * vert->v[1];
+		}
+	}
+
+	updateBuffers();
 }
 
 #ifdef EOLC_ONLINE

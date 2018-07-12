@@ -5,6 +5,7 @@
 #include "Preprocessor.h"
 #include "Collisions.h"
 #include "Constraints.h"
+#include "GeneralizedSolver.h"
 #include "matlabOutputs.h"
 
 #include "external\ArcSim\dynamicremesh.hpp"
@@ -20,11 +21,12 @@ using namespace Eigen;
 
 Scene::Scene() : 
 	h(0.005),
+	grav(Vector3d(0.0,0.0,-9.8)),
 	part(0)
 {
 	cloth = make_shared<Cloth>();
 	obs = make_shared<Obstacles>();
-	consts = make_shared<Constraints>();
+	GS = make_shared<GeneralizedSolver>();
 }
 
 void Scene::load(const string &RESOURCE_DIR)
@@ -41,7 +43,7 @@ void Scene::init(const bool online, const bool exportObjs)
 	}
 #endif
 
-	consts->init(obs);
+	cloth->consts->init(obs);
 
 	if (exportObjs) {
 
@@ -76,10 +78,11 @@ void Scene::step()
 	set_indices(cloth->mesh);
 	//preprocessClean(cloth->mesh);
 	//set_indices(cloth->mesh);
-	consts->fill(cloth->mesh, obs, h);
+	//cloth->consts->fill(cloth->mesh, obs, h);
 	//printstate(cloth->mesh);
-	cloth->velocityTransfer();
-	cloth->updateBuffers();
+	//cloth->velocityTransfer();
+	//cloth->updateBuffers();
+	cloth->step(GS, obs, grav, h);
 	obs->step(h);
 	cls.clear();
 	mesh2m(cloth->mesh, "mesh.m", true);
@@ -127,7 +130,7 @@ void Scene::draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program>
 void Scene::drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const
 {
 	obs->drawSimple(MV, p);
-	consts->drawSimple(MV, p);
+	cloth->consts->drawSimple(MV, p);
 	cloth->drawSimple(MV, p);
 }
 #endif // EOLC_ONLINE
