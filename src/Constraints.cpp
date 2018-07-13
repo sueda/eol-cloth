@@ -317,7 +317,6 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 1, -clsLAG[i]->nor2(1) * clsLAG[i]->weights2(j)));
 				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 2, -clsLAG[i]->nor2(2) * clsLAG[i]->weights2(j)));
 			}
-			cout << clsLAG[i]->nor2 << endl;
 			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
 			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
 			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));

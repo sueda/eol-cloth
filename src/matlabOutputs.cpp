@@ -3,11 +3,64 @@
 #include <fstream>
 #include <iomanip>
 
-#define EIGEN_DONT_ALIGN_STATICALLY
-#include <Eigen\Dense>
-
 using namespace std;
 using namespace Eigen;
+
+
+// This gets the job done for now
+// TODO:: Traverse sparse structure
+void mat_s2s_file(const SparseMatrix<double>& mat, const string &var_name, const string &file_name, const bool& overwrite)
+{
+	ofstream ofs;
+	if (overwrite) ofs.open(file_name, ofstream::out | ofstream::trunc);
+	else ofs.open(file_name, ofstream::out | ofstream::app);
+
+	MatrixXd dMat = MatrixXd(mat);
+
+	ofs << setprecision(20);
+
+	ofs << "i = [ ";
+
+	for (int i = 0; i < dMat.rows(); i++) {
+		for (int j = 0; j < dMat.cols(); j++) {
+			if (dMat(i, j) != 0.0) {
+				ofs << i + 1 << " ";
+			}
+		}
+	}
+
+	ofs << "]';\n";
+
+	ofs << "j = [ ";
+
+	for (int i = 0; i < dMat.rows(); i++) {
+		for (int j = 0; j < dMat.cols(); j++) {
+			if (dMat(i, j) != 0.0) {
+				ofs << j + 1 << " ";
+			}
+		}
+	}
+
+	ofs << "]';\n";
+
+	ofs << "v = [ ";
+
+	for (int i = 0; i < dMat.rows(); i++) {
+		for (int j = 0; j < dMat.cols(); j++) {
+			if (dMat(i, j) != 0.0) {
+				ofs << setprecision(16) << dMat(i, j) << " ";
+			}
+		}
+	}
+
+	ofs << "]';\n";
+
+	ofs << var_name;
+	ofs << " = sparse(i,j,v,";
+	ofs << dMat.rows() << "," << dMat.cols() << ");\n\n";
+
+	ofs.close();
+}
 
 void mat_to_file(const Eigen::MatrixXd& mat, const string &var_name, const string &file_name, const bool &overwrite)
 {

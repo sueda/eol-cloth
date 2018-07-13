@@ -19,6 +19,7 @@
 #include "ComputeBending.h"
 #include "ComputeInertial.h"
 #include "ComputeMembrane.h"
+#include "ComputeInertiaEOL.h"
 
 #include "external\ArcSim\util.hpp"
 
@@ -103,27 +104,33 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, c
 		int bindexX = mesh.nodes.size() * 3 + face->v[1]->node->EoL_index * 2;
 		int cindexX = mesh.nodes.size() * 3 + face->v[2]->node->EoL_index * 2;
 
-		double fi[9], fm[9], Mi[81], Km[81];
+		double fm[9], Km[81];
 
-		VectorXd fie(15), fme(15);
-		MatrixXd Mie(15, 15), Kme(15, 15);
+		VectorXd fme(9);
+		MatrixXd Kme(15, 15);
 
-		ComputeInertial(xa, xb, xc, Xa, Xb, Xc, g, mat->density, Wi, fi, Mi);
 		ComputeMembrane(xa, xb, xc, Xa, Xb, Xc, mat->e, mat->nu, PP, QQ, Wm, fm, Km);
 
-		fie.segment<9>(0) = Map<VectorXd>(fi, 9);
-		fme.segment<9>(0) = Map<VectorXd>(fm, 9);
-		Mie.block<9, 9>(0, 0) = Map<MatrixXd>(Mi, 9, 9);
+		fme = Map<VectorXd>(fm, 9);
 		Kme.block<9, 9>(0, 0) = Map<MatrixXd>(Km, 9, 9);
 
 		Vector2d damping(mat->dampingA, mat->dampingB);
 
 		if (face->v[0]->node->EoL || face->v[1]->node->EoL || face->v[2]->node->EoL) {
+
+			double fi[15], Mi[225];
+			ComputeInertiaEOL(xa, xb, xc, Xa, Xb, Xc, g, mat->density, Wi, fi, Mi);
+			VectorXd fie = Map<VectorXd>(fi, 15);
+			MatrixXd Mie = Map<MatrixXd>(Mi, 15, 15);
+
 			MatrixXd F = deform_grad(face);
 			int ja = 0; int jA = 3; int jb = 5; int jB = 8; int jc = 10; int jC = 13;
-			Matrix3d Kmaa = Kme.block(0, 0, 3, 3); Matrix3d Kmab = Kme.block(0, jb, 3, 3); Matrix3d Kmac = Kme.block(0, jc, 3, 3);
+			Matrix3d Kmaa = Kme.block(0, 0, 3, 3); Matrix3d Kmab = Kme.block(0, 3, 3, 3); Matrix3d Kmac = Kme.block(0, 6, 3, 3);
 			Matrix3d Kmba = Kme.block(3, 0, 3, 3); Matrix3d Kmbb = Kme.block(3, 3, 3, 3); Matrix3d Kmbc = Kme.block(3, 6, 3, 3);
 			Matrix3d Kmca = Kme.block(6, 0, 3, 3); Matrix3d Kmcb = Kme.block(6, 3, 3, 3); Matrix3d Kmcc = Kme.block(6, 6, 3, 3);
+			Kme.block(ja, ja, 3, 3) = Kmaa; Kme.block(ja, jb, 3, 3) = Kmab; Kme.block(ja, jc, 3, 3) = Kmac;
+			Kme.block(jb, ja, 3, 3) = Kmba; Kme.block(jb, jb, 3, 3) = Kmbb; Kme.block(jb, jc, 3, 3) = Kmbc;
+			Kme.block(jc, ja, 3, 3) = Kmca; Kme.block(jc, jb, 3, 3) = Kmcb; Kme.block(jc, jc, 3, 3) = Kmcc;
 			Kme.block(ja, jA, 3, 2) = -Kmaa * F; Kme.block(ja, jB, 3, 2) = -Kmab * F; Kme.block(ja, jC, 3, 2) = -Kmac * F;
 			Kme.block(jb, jA, 3, 2) = -Kmba * F; Kme.block(jb, jB, 3, 2) = -Kmbb * F; Kme.block(jb, jC, 3, 2) = -Kmbc * F;
 			Kme.block(jc, jA, 3, 2) = -Kmca * F; Kme.block(jc, jB, 3, 2) = -Kmcb * F; Kme.block(jc, jC, 3, 2) = -Kmcc * F;
@@ -150,8 +157,8 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, c
 			Matrix3d Mbb = Mie.block(5, 5, 3, 3);
 			Matrix3d Kbb = Kme.block(5, 5, 3, 3);
 			Matrix3d MDKbb = Mbb + damping(0) * h * Mbb + damping(1) * h * h * Kbb;
-			f.segment<3>(face->v[1]->node->index * 3) += (fie.segment<3>(5) + fme.segment<3>(5));
-			if (face->v[1]->node->EoL_index != -1)f.segment<2>(bindexX) += -F.transpose() * (fie.segment<3>(5) + fme.segment<3>(5));
+			f.segment<3>(face->v[1]->node->index * 3) += (fie.segment<3>(5) + fme.segment<3>(3));
+			if (face->v[1]->node->EoL_index != -1)f.segment<2>(bindexX) += -F.transpose() * (fie.segment<3>(5) + fme.segment<3>(3));
 			for (int j = 0; j < 3; j++) {
 				for (int k = 0; k < 3; k++) {
 					M_.push_back(T(bindex + j, bindex + k, Mbb(j, k)));
@@ -162,8 +169,8 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, c
 			Matrix3d Mcc = Mie.block(10, 10, 3, 3);
 			Matrix3d Kcc = Kme.block(10, 10, 3, 3);
 			Matrix3d MDKcc = Mcc + damping(0) * h * Mcc + damping(1) * h * h * Kcc;
-			f.segment<3>(face->v[2]->node->index * 3) += (fie.segment<3>(10) + fme.segment<3>(10));
-			if (face->v[2]->node->EoL_index != -1) f.segment<2>(cindexX) += -F.transpose() * (fie.segment<3>(10) + fme.segment<3>(10));
+			f.segment<3>(face->v[2]->node->index * 3) += (fie.segment<3>(10) + fme.segment<3>(6));
+			if (face->v[2]->node->EoL_index != -1) f.segment<2>(cindexX) += -F.transpose() * (fie.segment<3>(10) + fme.segment<3>(6));
 			for (int j = 0; j < 3; j++) {
 				for (int k = 0; k < 3; k++) {
 					M_.push_back(T(cindex + j, cindex + k, Mcc(j, k)));
@@ -402,6 +409,12 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, c
 			}
 		}
 		else {
+
+			double fi[9], Mi[81];
+			ComputeInertial(xa, xb, xc, Xa, Xb, Xc, g, mat->density, Wi, fi, Mi);
+			VectorXd fie = Map<VectorXd>(fi, 9);
+			MatrixXd Mie = Map<MatrixXd>(Mi, 9, 9);
+
 			Matrix3d Maa = Mie.block(0, 0, 3, 3);
 			Matrix3d Kaa = Kme.block(0, 0, 3, 3);
 			Matrix3d MDKaa = Maa + damping(0) * h * Maa + damping(1) * h * h * Kaa;
@@ -545,6 +558,10 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 			Matrix3d Kbba = Kbe.block(3, 0, 3, 3); Matrix3d Kbbb = Kbe.block(3, 3, 3, 3); Matrix3d Kbbc = Kbe.block(3, 6, 3, 3); Matrix3d Kbbd = Kbe.block(3, 9, 3, 3);
 			Matrix3d Kbca = Kbe.block(6, 0, 3, 3); Matrix3d Kbcb = Kbe.block(6, 3, 3, 3); Matrix3d Kbcc = Kbe.block(6, 6, 3, 3); Matrix3d Kbcd = Kbe.block(6, 9, 3, 3);
 			Matrix3d Kbda = Kbe.block(9, 0, 3, 3); Matrix3d Kbdb = Kbe.block(9, 3, 3, 3); Matrix3d Kbdc = Kbe.block(9, 6, 3, 3); Matrix3d Kbdd = Kbe.block(9, 9, 3, 3);
+			Kbe.block(ja, ja, 3, 3) = Kbaa; Kbe.block(ja, jb, 3, 3) = Kbab; Kbe.block(ja, jc, 3, 3) = Kbac; Kbe.block(ja, jd, 3, 3) = Kbad;
+			Kbe.block(jb, ja, 3, 3) = Kbba; Kbe.block(jb, jb, 3, 3) = Kbbb; Kbe.block(jb, jc, 3, 3) = Kbbc; Kbe.block(jb, jd, 3, 3) = Kbbd;
+			Kbe.block(jc, ja, 3, 3) = Kbca; Kbe.block(jc, jb, 3, 3) = Kbcb; Kbe.block(jc, jc, 3, 3) = Kbcc; Kbe.block(jc, jd, 3, 3) = Kbcd;
+			Kbe.block(jd, ja, 3, 3) = Kbda; Kbe.block(jd, jb, 3, 3) = Kbdb; Kbe.block(jd, jc, 3, 3) = Kbdc; Kbe.block(jd, jd, 3, 3) = Kbdd;
 			Kbe.block(ja, jA, 3, 2) = -Kbaa * F; Kbe.block(ja, jB, 3, 2) = -Kbab * F; Kbe.block(ja, jC, 3, 2) = -Kbac * F; Kbe.block(ja, jD, 3, 2) = -Kbad * F;
 			Kbe.block(jb, jA, 3, 2) = -Kbba * F; Kbe.block(jb, jB, 3, 2) = -Kbbb * F; Kbe.block(jb, jC, 3, 2) = -Kbbc * F; Kbe.block(jb, jD, 3, 2) = -Kbbd * F;
 			Kbe.block(jc, jA, 3, 2) = -Kbca * F; Kbe.block(jc, jB, 3, 2) = -Kbcb * F; Kbe.block(jc, jC, 3, 2) = -Kbcc * F; Kbe.block(jc, jD, 3, 2) = -Kbcd * F;
@@ -569,8 +586,8 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 			}
 
 			Matrix3d K11 = damping(1) * h * h * Kbe.block(5, 5, 3, 3);
-			f.segment<3>(bindex) += fbe.segment<3>(5);
-			if (to_eolB) f.segment<2>(bindexX) += -F.transpose() * fbe.segment<3>(5);
+			f.segment<3>(bindex) += fbe.segment<3>(3);
+			if (to_eolB) f.segment<2>(bindexX) += -F.transpose() * fbe.segment<3>(3);
 			for (int j = 0; j < 3; j++) {
 				for (int k = 0; k < 3; k++) {
 					MDK_.push_back(T(bindex + j, bindex + k, K11(j, k)));
@@ -578,8 +595,8 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 			}
 
 			Matrix3d K22 = damping(1) * h * h * Kbe.block(10, 10, 3, 3);
-			f.segment<3>(cindex) += fbe.segment<3>(10);
-			if (to_eolC) f.segment<2>(cindexX) += -F.transpose() * fbe.segment<3>(10);
+			f.segment<3>(cindex) += fbe.segment<3>(6);
+			if (to_eolC) f.segment<2>(cindexX) += -F.transpose() * fbe.segment<3>(6);
 			for (int j = 0; j < 3; j++) {
 				for (int k = 0; k < 3; k++) {
 					MDK_.push_back(T(cindex + j, cindex + k, K22(j, k)));
@@ -587,8 +604,8 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 			}
 
 			Matrix3d K33 = damping(1) * h * h * Kbe.block(15, 15, 3, 3);
-			f.segment<3>(dindex) += fbe.segment<3>(15);
-			if (to_eolD) f.segment<2>(dindexX) += -F.transpose() * fbe.segment<3>(15);
+			f.segment<3>(dindex) += fbe.segment<3>(9);
+			if (to_eolD) f.segment<2>(dindexX) += -F.transpose() * fbe.segment<3>(9);
 			for (int j = 0; j < 3; j++) {
 				for (int k = 0; k < 3; k++) {
 					MDK_.push_back(T(dindex + j, dindex + k, K33(j, k)));

@@ -652,16 +652,18 @@ bool a;
 void preprocessPart(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls, int &part)
 {
 	if (part == 1) {
-		for (int i = 0; i < mesh.nodes.size(); i++) {
-			mesh.nodes[i]->EoL = false;
-			mesh.nodes[i]->cornerID = -1;
-			mesh.nodes[i]->cdEdges.clear();
-		}
-		for (int i = 0; i < mesh.edges.size(); i++) {
-			mesh.edges[i]->preserve = false;
-		}
+		//for (int i = 0; i < mesh.nodes.size(); i++) {
+		//	mesh.nodes[i]->EoL = false;
+		//	mesh.nodes[i]->cornerID = -1;
+		//	mesh.nodes[i]->cdEdges.clear();
+		//}
+		//for (int i = 0; i < mesh.edges.size(); i++) {
+		//	mesh.edges[i]->preserve = false;
+		//}
 		a = true;
+		markWasEOL(mesh);
 		addGeometry(mesh, cls);
+		revertWasEOL(mesh);
 		cout << "Add Geometry" << endl;
 	}
 	else if (part == 2) {
@@ -693,6 +695,7 @@ void preprocessPart(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls, i
 			cout << "Split ill-conditioned, not good" << endl;
 		}
 		else {
+			markPreserve(mesh);
 			cout << "Split ill-conditioned, all good" << endl;
 		}
 	}

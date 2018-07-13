@@ -43,6 +43,9 @@ void Scene::init(const bool online, const bool exportObjs)
 	}
 #endif
 
+	dynamic_remesh(cloth->mesh);
+	set_indices(cloth->mesh);
+
 	cloth->consts->init(obs);
 
 	if (exportObjs) {
@@ -66,13 +69,13 @@ void Scene::step()
 		return;
 	}
 	cloth->updatePreviousMesh();
-	dynamic_remesh(cloth->mesh);
-	set_indices(cloth->mesh);
-	CD(cloth->mesh, obs, cls);
 	//dynamic_remesh(cloth->mesh);
-	preprocess(cloth->mesh, cls);
+	//set_indices(cloth->mesh);
+	//CD(cloth->mesh, obs, cls);
+	//dynamic_remesh(cloth->mesh);
+	//preprocess(cloth->mesh, cls);
 	//reindex_nodes(cloth->mesh.nodes);
-	set_indices(cloth->mesh);
+	//set_indices(cloth->mesh);
 	cout << "pre" << endl;
 	dynamic_remesh(cloth->mesh);
 	set_indices(cloth->mesh);
@@ -85,7 +88,7 @@ void Scene::step()
 	cloth->step(GS, obs, grav, h);
 	obs->step(h);
 	cls.clear();
-	mesh2m(cloth->mesh, "mesh.m", true);
+	//mesh2m(cloth->mesh, "mesh.m", true);
 	cout << "step" << endl;
 }
 
@@ -109,7 +112,7 @@ void Scene::partialStep()
 		cloth->updateBuffers();
 	}
 	else if (part == 9) {
-		cloth->updateBuffers();
+		cloth->step(GS, obs, grav, h);;
 		cout << "Finished step" << endl;
 		cls.clear();
 		part = -1;

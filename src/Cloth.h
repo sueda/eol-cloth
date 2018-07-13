@@ -29,17 +29,6 @@ extern struct Material {
 	double beta;
 	double dampingA;
 	double dampingB;
-	//double edge_density;
-	//StretchingSamples dde_stretching;
-	//BendingData dde_bending;
-	//double damping; // stiffness-proportional damping coefficient
-	//double strain_min, strain_max; // strain limits
-	//double yield_curv, weakening; // plasticity parameters
-	//double yield_stretch, plastic_flow, plastic_limit;
-	//bool use_dde; // use DDE material files
-	//double thickness;
-	//double alt_stretching, alt_bending, alt_poisson; // alternative material model
-	//double toughness, fracture_bend_thickness; // fracture toughness
 };
 
 extern struct Remeshing {

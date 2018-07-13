@@ -1,5 +1,7 @@
 #include "GeneralizedSolver.h"
 
+#include "matlabOutputs.h"
+
 #include <iostream>
 
 #ifdef EOLC_MOSEK
@@ -19,12 +21,102 @@ GeneralizedSolver::GeneralizedSolver() :
 
 }
 
+void generateMatlab(const SparseMatrix<double>& MDK, const VectorXd& b,
+	const SparseMatrix<double>& Aeq, const VectorXd& beq,
+	const SparseMatrix<double>& Aineq, const VectorXd& bineq,
+	VectorXd& v)
+{
+	mat_s2s_file(MDK, "MDK", "solver.m", true);
+	vec_to_file(b, "b", "solver.m", false);
+	mat_s2s_file(Aeq, "Aeq", "solver.m", false);
+	vec_to_file(beq, "beq", "solver.m", false);
+	mat_s2s_file(Aineq, "Aineq", "solver.m", false);
+	vec_to_file(bineq, "bineq", "solver.m", false);
+	vec_to_file(v, "v_input", "solver.m", false);
+}
+
+#ifdef EOLC_MOSEK
+bool mosekSolve(const SparseMatrix<double>& MDK, const VectorXd& b,
+	const SparseMatrix<double>& Aeq, const VectorXd& beq,
+	const SparseMatrix<double>& Aineq, const VectorXd& bineq,
+	VectorXd& v)
+{
+	QuadProgMosek *program = new QuadProgMosek();
+	double inf = numeric_limits<double>::infinity();
+
+	VectorXd xl;
+	VectorXd xu;
+	xl.setConstant(b.size(), -inf);
+	xu.setConstant(b.size(), inf);
+
+	program->setNumberOfVariables(b.size());
+	program->setNumberOfEqualities(beq.size());
+	program->setNumberOfInequalities(bineq.size());
+
+	program->setObjectiveMatrix(MDK);
+	program->setObjectiveVector(b);
+
+	program->setInequalityMatrix(Aineq);
+	program->setInequalityVector(bineq);
+
+	program->setEqualityMatrix(Aeq);
+	program->setEqualityVector(beq);
+
+	bool success = program->solve();
+
+	v = program->getPrimalSolution();
+
+	return success;
+}
+#endif
+
+#ifdef EOLC_GUROBI
+bool gurobiSolve(const SparseMatrix<double>& MDK, const VectorXd& b,
+	const SparseMatrix<double>& Aeq, const VectorXd& beq,
+	const SparseMatrix<double>& Aineq, const VectorXd& bineq,
+	VectorXd& v)
+{
+	GurobiSparse qp(b.size(), beq.size(), bineq.size());
+	qp.displayOutput(false);
+
+	SparseMatrix<double> Sb(b.sparseView());
+	SparseVector<double> Sbeq(beq.sparseView());
+	SparseVector<double> Sbineq(bineq.sparseView());
+
+	MDK.makeCompressed();
+	SC.makeCompressed();
+	Aeq.makeCompressed();
+	Aineq.makeCompressed();
+
+	VectorXd XL, XU;
+	double inf = numeric_limits<double>::infinity();
+	XL.setConstant(b.size(), -inf);
+	XU.setConstant(b.size(), inf);
+
+	bool success = qp.solve(MDK, Sb,
+		Aeq, Sbeq,
+		Aineq, Sbineq,
+		XL, XU);
+
+	v = qp.result();
+
+	return success;
+}
+#endif
+
 bool GeneralizedSolver::velocitySolve(const bool& fixedPoints, const bool& collisions,
 	const SparseMatrix<double>& MDK, const VectorXd& b,
 	const SparseMatrix<double>& Aeq, const VectorXd& beq,
 	const SparseMatrix<double>& Aineq, const VectorXd& bineq,
 	VectorXd& v)
 {
+	if (true) {
+		generateMatlab(MDK, b,
+			Aeq, beq,
+			Aineq, bineq,
+			v);
+	}
+
 	if (!collisions) {
 		// Simplest case, a cloth with no fixed points and no collisions
 		if (!fixedPoints) {
@@ -39,6 +131,7 @@ bool GeneralizedSolver::velocitySolve(const bool& fixedPoints, const bool& colli
 			LeastSquaresConjugateGradient<SparseMatrix<double> > lscg;
 			lscg.compute(MDK);
 			v = lscg.solve(-b);
+			return true;
 		}
 	}
 	else {
@@ -49,7 +142,11 @@ bool GeneralizedSolver::velocitySolve(const bool& fixedPoints, const bool& colli
 		}
 		else if (whichSolver == GeneralizedSolver::Mosek) {
 #ifdef EOLC_MOSEK
-
+			bool success = mosekSolve(MDK, b,
+				Aeq, beq,
+				Aineq, bineq,
+				v);
+			return success;
 #else
 			cout << "ERROR:" << endl;
 			cout << "Attempting to use the mosek solver without mosek support enabled" << endl;
@@ -58,7 +155,11 @@ bool GeneralizedSolver::velocitySolve(const bool& fixedPoints, const bool& colli
 		}
 		else if (whichSolver == GeneralizedSolver::Gurobi) {
 #ifdef EOLC_GUROBI
-
+			bool success = gurobiSolve(MDK, b,
+				Aeq, beq,
+				Aineq, bineq,
+				v);
+			return success;
 #else
 			cout << "ERROR:" << endl;
 			cout << "Attempting to use the gurobi solver without gurobi support enabled" << endl;
