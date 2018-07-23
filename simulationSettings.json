@@ -37,7 +37,7 @@
 			"refine_angle": 0.3,
 			"refine_compression": 0.005,
 			"refine_velocity": 0.5,
-			"size": [120e-3, 150e-3], // These are the main bounds that changes the overall resolution
+			"size": [60e-3, 80e-3], // These are the main bounds that changes the overall resolution
 			"aspect_min": 0.2
 		},
 		

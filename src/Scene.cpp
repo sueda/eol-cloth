@@ -71,9 +71,9 @@ void Scene::step()
 	cloth->updatePreviousMesh();
 	//dynamic_remesh(cloth->mesh);
 	//set_indices(cloth->mesh);
-	//CD(cloth->mesh, obs, cls);
+	CD(cloth->mesh, obs, cls);
 	//dynamic_remesh(cloth->mesh);
-	//preprocess(cloth->mesh, cls);
+	preprocess(cloth->mesh, cls);
 	//reindex_nodes(cloth->mesh.nodes);
 	//set_indices(cloth->mesh);
 	cout << "pre" << endl;

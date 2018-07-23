@@ -31,7 +31,7 @@ using namespace Eigen;
 
 typedef Eigen::Triplet<double> T;
 
-Matrix2d poldec(Matrix2d M) {
+Matrix2d poldec(const Matrix2d& M) {
 	double m11 = M(0, 0);
 	double m12 = M(0, 1);
 	double m21 = M(1, 0);
@@ -50,6 +50,130 @@ Matrix2d poldec(Matrix2d M) {
 	double clen = Q.col(0).norm();
 	Q = Q / clen;
 	return Q;
+}
+
+void fillxMI(vector<T>& M_, vector<T>& MDK_, const Matrix3d& Mxx, const Matrix3d& Kxx, int index, const Vector2d& damping, double h)
+{
+	Matrix3d MDKxx = Mxx + damping(0) * h * Mxx + damping(1) * h * h * Kxx;
+	for (int j = 0; j < 3; j++) {
+		for (int k = 0; k < 3; k++) {
+			M_.push_back(T(index + j, index + k, Mxx(j, k)));
+			MDK_.push_back(T(index + j, index + k, MDKxx(j, k)));
+		}
+	}
+}
+
+void fillxxMI(vector<T>& M_, vector<T>& MDK_, const Matrix3d& Mxx, const Matrix3d& Kxx, int i0, int i1, const Vector2d& damping, double h)
+{
+	Matrix3d MDKxx = Mxx + damping(0) * h * Mxx + damping(1) * h * h * Kxx;
+	for (int j = 0; j < 3; j++) {
+		for (int k = 0; k < 3; k++) {
+			//M_.push_back(T(i0 + j, i1 + k, Mxx(j, k)));
+			//M_.push_back(T(i1 + k, i0 + j, Mxx(j, k)));
+			MDK_.push_back(T(i0 + j, i1 + k, MDKxx(j, k)));
+			MDK_.push_back(T(i1 + k, i0 + j, MDKxx(j, k)));
+		}
+	}
+}
+
+void fillXMI(vector<T>& M_, vector<T>& MDK_, const Matrix2d& MXX, const Matrix2d& KXX, int index, const Vector2d& damping, double h)
+{
+	Matrix2d MDKXX = MXX + damping(0) * h * MXX + damping(1) * h * h * KXX;
+	for (int j = 0; j < 2; j++) {
+		for (int k = 0; k < 2; k++) {
+			M_.push_back(T(index + j, index + k, MXX(j, k)));
+			MDK_.push_back(T(index + j, index + k, MDKXX(j, k)));
+		}
+	}
+}
+
+void fillXXMI(vector<T>& M_, vector<T>& MDK_, const Matrix2d& MXX, const Matrix2d& KXX, int i0, int i1, const Vector2d& damping, double h)
+{
+	Matrix2d MDKXX = MXX + damping(0) * h * MXX + damping(1) * h * h * KXX;
+	for (int j = 0; j < 2; j++) {
+		for (int k = 0; k < 2; k++) {
+			//M_.push_back(T(i0 + j, i1 + k, MXX(j, k)));
+			//M_.push_back(T(i1 + k, i0 + j, MXX(j, k)));
+			MDK_.push_back(T(i0 + j, i1 + k, MDKXX(j, k)));
+			MDK_.push_back(T(i1 + k, i0 + j, MDKXX(j, k)));
+		}
+	}
+}
+
+void fillXxMI(vector<T>& M_, vector<T>& MDK_, MatrixXd& MXx, MatrixXd& KXx, int i0, int i1, Vector2d& damping, double h)
+{
+	MatrixXd MDKXx = MXx + damping(0) * h * MXx + damping(1) * h * h * KXx;
+	for (int j = 0; j < 2; j++) {
+		for (int k = 0; k < 3; k++) {
+			//M_.push_back(T(i0 + j, i1 + k, MXx(j, k)));
+			//M_.push_back(T(i1 + k, i0 + j, MXx(j, k)));
+			MDK_.push_back(T(i0 + j, i1 + k, MDKXx(j, k)));
+			MDK_.push_back(T(i1 + k, i0 + j, MDKXx(j, k)));
+		}
+	}
+}
+
+void fillEOLMembrane(const Face* face, VectorXd& fm, MatrixXd& Km)
+{
+	MatrixXd Fa, Fb, Fc;
+	bool EOLA = face->v[0]->node->EoL; bool EOLB = face->v[1]->node->EoL; bool EOLC = face->v[2]->node->EoL;
+
+	if (EOLA) Fa = deform_grad_v(face->v[0]);
+	if (EOLB) Fb = deform_grad_v(face->v[1]);
+	if (EOLC) Fc = deform_grad_v(face->v[2]);
+
+	Vector3d fma = fm.segment<3>(0); Vector3d fmb = fm.segment<3>(3); Vector3d fmc = fm.segment<3>(6);
+
+	Matrix3d Kmaa = Km.block<3, 3>(0, 0); Matrix3d Kmab = Km.block<3, 3>(0, 3); Matrix3d Kmac = Km.block<3, 3>(0, 6);
+	Matrix3d Kmba = Km.block<3, 3>(3, 0); Matrix3d Kmbb = Km.block<3, 3>(3, 3); Matrix3d Kmbc = Km.block<3, 3>(3, 6);
+	Matrix3d Kmca = Km.block<3, 3>(6, 0); Matrix3d Kmcb = Km.block<3, 3>(6, 3); Matrix3d Kmcc = Km.block<3, 3>(6, 6);
+
+	int ja = 0; int jA = 3; int jb = 5; int jB = 8; int jc = 10; int jC = 13;
+
+	fm.segment<3>(ja) = fma; fm.segment<3>(jb) = fmb; fm.segment<3>(jc) = fmc;
+
+	Km.block<3, 3>(ja, ja) = Kmaa; Km.block<3, 3>(ja, jb) = Kmab; Km.block<3, 3>(ja, jc) = Kmac;
+	/*Km.block<3, 3>(jb, ja) = Kmba;*/ Km.block<3, 3>(jb, jb) = Kmbb; Km.block<3, 3>(jb, jc) = Kmbc;
+	/*Km.block<3, 3>(jc, ja) = Kmca; Km.block<3, 3>(jc, jb) = Kmcb;*/ Km.block<3, 3>(jc, jc) = Kmcc;
+
+	if (EOLA) {
+		fm.segment<2>(jA) = -Fa.transpose() * fma;
+		Km.block<2, 2>(jA, jA) = Fa.transpose() * Kmaa * Fa;
+	}
+	if (EOLB) {
+		fm.segment<2>(jB) = -Fb.transpose() * fmb;
+		Km.block<2, 2>(jB, jB) = Fb.transpose() * Kmbb * Fb;
+	}
+	if (EOLC) {
+		fm.segment<2>(jC) = -Fc.transpose() * fmc;
+		Km.block<2, 2>(jC, jC) = Fc.transpose() * Kmcc * Fc;
+	}
+
+	if (EOLA && EOLB) {
+		Km.block<2, 2>(jA, jB) = Fa.transpose() * Kmab * Fb;
+	}
+	if (EOLA && EOLC) {
+		Km.block<2, 2>(jA, jC) = Fa.transpose() * Kmac * Fc;
+	}
+	if (EOLB && EOLC) {
+		Km.block<2, 2>(jB, jC) = Fb.transpose() * Kmbc * Fc;
+	}
+
+	if (EOLA) {
+		Km.block<2, 3>(jA, ja) = -Fa.transpose() * Kmaa;
+		Km.block<2, 3>(jA, jb) = -Fa.transpose() * Kmab;
+		Km.block<2, 3>(jA, jc) = -Fa.transpose() * Kmac;
+	}
+	if (EOLB) {
+		Km.block<2, 3>(jB, ja) = -Fb.transpose() * Kmba;
+		Km.block<2, 3>(jB, jb) = -Fb.transpose() * Kmbb;
+		Km.block<2, 3>(jB, jc) = -Fb.transpose() * Kmbc;
+	}
+	if (EOLC) {
+		Km.block<2, 3>(jC, ja) = -Fc.transpose() * Kmca;
+		Km.block<2, 3>(jC, jb) = -Fc.transpose() * Kmcb;
+		Km.block<2, 3>(jC, jc) = -Fc.transpose() * Kmcc;
+	}
 }
 
 void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, const Vector3d& grav, double h)
@@ -106,12 +230,12 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, c
 
 		double fm[9], Km[81];
 
-		VectorXd fme(9);
+		VectorXd fme(15);
 		MatrixXd Kme(15, 15);
 
 		ComputeMembrane(xa, xb, xc, Xa, Xb, Xc, mat->e, mat->nu, PP, QQ, Wm, fm, Km);
 
-		fme = Map<VectorXd>(fm, 9);
+		fme.segment<9>(0) = Map<VectorXd>(fm, 9);
 		Kme.block<9, 9>(0, 0) = Map<MatrixXd>(Km, 9, 9);
 
 		Vector2d damping(mat->dampingA, mat->dampingB);
@@ -123,289 +247,117 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, c
 			VectorXd fie = Map<VectorXd>(fi, 15);
 			MatrixXd Mie = Map<MatrixXd>(Mi, 15, 15);
 
-			MatrixXd F = deform_grad(face);
-			int ja = 0; int jA = 3; int jb = 5; int jB = 8; int jc = 10; int jC = 13;
-			Matrix3d Kmaa = Kme.block(0, 0, 3, 3); Matrix3d Kmab = Kme.block(0, 3, 3, 3); Matrix3d Kmac = Kme.block(0, 6, 3, 3);
-			Matrix3d Kmba = Kme.block(3, 0, 3, 3); Matrix3d Kmbb = Kme.block(3, 3, 3, 3); Matrix3d Kmbc = Kme.block(3, 6, 3, 3);
-			Matrix3d Kmca = Kme.block(6, 0, 3, 3); Matrix3d Kmcb = Kme.block(6, 3, 3, 3); Matrix3d Kmcc = Kme.block(6, 6, 3, 3);
-			Kme.block(ja, ja, 3, 3) = Kmaa; Kme.block(ja, jb, 3, 3) = Kmab; Kme.block(ja, jc, 3, 3) = Kmac;
-			Kme.block(jb, ja, 3, 3) = Kmba; Kme.block(jb, jb, 3, 3) = Kmbb; Kme.block(jb, jc, 3, 3) = Kmbc;
-			Kme.block(jc, ja, 3, 3) = Kmca; Kme.block(jc, jb, 3, 3) = Kmcb; Kme.block(jc, jc, 3, 3) = Kmcc;
-			Kme.block(ja, jA, 3, 2) = -Kmaa * F; Kme.block(ja, jB, 3, 2) = -Kmab * F; Kme.block(ja, jC, 3, 2) = -Kmac * F;
-			Kme.block(jb, jA, 3, 2) = -Kmba * F; Kme.block(jb, jB, 3, 2) = -Kmbb * F; Kme.block(jb, jC, 3, 2) = -Kmbc * F;
-			Kme.block(jc, jA, 3, 2) = -Kmca * F; Kme.block(jc, jB, 3, 2) = -Kmcb * F; Kme.block(jc, jC, 3, 2) = -Kmcc * F;
-			Kme.block(jA, ja, 2, 3) = -F.transpose() * Kmaa; Kme.block(jA, jb, 2, 3) = -F.transpose() * Kmab; Kme.block(jA, jc, 2, 3) = -F.transpose() * Kmac;
-			Kme.block(jB, ja, 2, 3) = -F.transpose() * Kmba; Kme.block(jB, jb, 2, 3) = -F.transpose() * Kmbb; Kme.block(jB, jc, 2, 3) = -F.transpose() * Kmbc;
-			Kme.block(jC, ja, 2, 3) = -F.transpose() * Kmca; Kme.block(jC, jb, 2, 3) = -F.transpose() * Kmcb; Kme.block(jC, jc, 2, 3) = -F.transpose() * Kmcc;
-			Kme.block(jA, jA, 2, 2) = F.transpose() * Kmaa * F; Kme.block(jA, jB, 2, 2) = F.transpose() * Kmab * F; Kme.block(jA, jC, 2, 2) = F.transpose() * Kmac * F;
-			Kme.block(jB, jA, 2, 2) = F.transpose() * Kmba * F; Kme.block(jB, jB, 2, 2) = F.transpose() * Kmbb * F; Kme.block(jB, jC, 2, 2) = F.transpose() * Kmbc * F;
-			Kme.block(jC, jA, 2, 2) = F.transpose() * Kmca * F; Kme.block(jC, jB, 2, 2) = F.transpose() * Kmcb * F; Kme.block(jC, jC, 2, 2) = F.transpose() * Kmcc * F;
+			//MatrixXd F = deform_grad(face);
+			//int ja = 0; int jA = 3; int jb = 5; int jB = 8; int jc = 10; int jC = 13;
+			//Matrix3d Kmaa = Kme.block(0, 0, 3, 3); Matrix3d Kmab = Kme.block(0, 3, 3, 3); Matrix3d Kmac = Kme.block(0, 6, 3, 3);
+			//Matrix3d Kmba = Kme.block(3, 0, 3, 3); Matrix3d Kmbb = Kme.block(3, 3, 3, 3); Matrix3d Kmbc = Kme.block(3, 6, 3, 3);
+			//Matrix3d Kmca = Kme.block(6, 0, 3, 3); Matrix3d Kmcb = Kme.block(6, 3, 3, 3); Matrix3d Kmcc = Kme.block(6, 6, 3, 3);
+			//Kme.block(ja, ja, 3, 3) = Kmaa; Kme.block(ja, jb, 3, 3) = Kmab; Kme.block(ja, jc, 3, 3) = Kmac;
+			//Kme.block(jb, ja, 3, 3) = Kmba; Kme.block(jb, jb, 3, 3) = Kmbb; Kme.block(jb, jc, 3, 3) = Kmbc;
+			//Kme.block(jc, ja, 3, 3) = Kmca; Kme.block(jc, jb, 3, 3) = Kmcb; Kme.block(jc, jc, 3, 3) = Kmcc;
+			//Kme.block(ja, jA, 3, 2) = -Kmaa * F; Kme.block(ja, jB, 3, 2) = -Kmab * F; Kme.block(ja, jC, 3, 2) = -Kmac * F;
+			//Kme.block(jb, jA, 3, 2) = -Kmba * F; Kme.block(jb, jB, 3, 2) = -Kmbb * F; Kme.block(jb, jC, 3, 2) = -Kmbc * F;
+			//Kme.block(jc, jA, 3, 2) = -Kmca * F; Kme.block(jc, jB, 3, 2) = -Kmcb * F; Kme.block(jc, jC, 3, 2) = -Kmcc * F;
+			//Kme.block(jA, ja, 2, 3) = -F.transpose() * Kmaa; Kme.block(jA, jb, 2, 3) = -F.transpose() * Kmab; Kme.block(jA, jc, 2, 3) = -F.transpose() * Kmac;
+			//Kme.block(jB, ja, 2, 3) = -F.transpose() * Kmba; Kme.block(jB, jb, 2, 3) = -F.transpose() * Kmbb; Kme.block(jB, jc, 2, 3) = -F.transpose() * Kmbc;
+			//Kme.block(jC, ja, 2, 3) = -F.transpose() * Kmca; Kme.block(jC, jb, 2, 3) = -F.transpose() * Kmcb; Kme.block(jC, jc, 2, 3) = -F.transpose() * Kmcc;
+			//Kme.block(jA, jA, 2, 2) = F.transpose() * Kmaa * F; Kme.block(jA, jB, 2, 2) = F.transpose() * Kmab * F; Kme.block(jA, jC, 2, 2) = F.transpose() * Kmac * F;
+			//Kme.block(jB, jA, 2, 2) = F.transpose() * Kmba * F; Kme.block(jB, jB, 2, 2) = F.transpose() * Kmbb * F; Kme.block(jB, jC, 2, 2) = F.transpose() * Kmbc * F;
+			//Kme.block(jC, jA, 2, 2) = F.transpose() * Kmca * F; Kme.block(jC, jB, 2, 2) = F.transpose() * Kmcb * F; Kme.block(jC, jC, 2, 2) = F.transpose() * Kmcc * F;
 
-			// x values
-			Matrix3d Maa = Mie.block(0, 0, 3, 3);
-			Matrix3d Kaa = Kme.block(0, 0, 3, 3);
-			Matrix3d MDKaa = Maa + damping(0) * h * Maa + damping(1) * h * h * Kaa;
-			f.segment<3>(face->v[0]->node->index * 3) += (fie.segment<3>(0) + fme.segment<3>(0));
-			if (face->v[0]->node->EoL_index != -1) f.segment<2>(aindexX) += -F.transpose() * (fie.segment<3>(0) + fme.segment<3>(0));
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(aindex + j, aindex + k, Maa(j, k)));
-					MDK_.push_back(T(aindex + j, aindex + k, MDKaa(j, k)));
-				}
+			fillEOLMembrane(face, fme, Kme);
+
+			f.segment<3>(aindex) += (fie.segment<3>(0) + fme.segment<3>(0));
+			if (face->v[0]->node->EoL) f.segment<2>(aindexX) += (fie.segment<2>(3) + fme.segment<2>(3));
+
+			f.segment<3>(bindex) += (fie.segment<3>(5) + fme.segment<3>(5));
+			if (face->v[1]->node->EoL)f.segment<2>(bindexX) += (fie.segment<2>(8) + fme.segment<2>(8));
+
+			f.segment<3>(cindex) += (fie.segment<3>(10) + fme.segment<3>(10));
+			if (face->v[2]->node->EoL) f.segment<2>(cindexX) += (fie.segment<2>(13) + fme.segment<2>(13));
+
+			//f.segment<3>(face->v[0]->node->index * 3) += (fie.segment<3>(0) + fme.segment<3>(0));
+			//if (face->v[0]->node->EoL) f.segment<2>(aindexX) += -F.transpose() * (fie.segment<3>(0) + fme.segment<3>(0));
+
+			//f.segment<3>(face->v[1]->node->index * 3) += (fie.segment<3>(5) + fme.segment<3>(3));
+			//if (face->v[1]->node->EoL)f.segment<2>(bindexX) += -F.transpose() * (fie.segment<3>(5) + fme.segment<3>(3));
+
+			//f.segment<3>(face->v[2]->node->index * 3) += (fie.segment<3>(10) + fme.segment<3>(6));
+			//if (face->v[2]->node->EoL) f.segment<2>(cindexX) += -F.transpose() * (fie.segment<3>(10) + fme.segment<3>(6));
+
+			cout << Mie << endl;
+
+			// Diagonal x
+			Matrix3d Mxx, Kxx;
+			Mxx = Mie.block<3, 3>(0, 0); Kxx = Kme.block<3, 3>(0, 0);
+			fillxMI(M_, MDK_, Mxx, Kxx, aindex, damping, h);
+			Mxx = Mie.block<3, 3>(5, 5); Kxx = Kme.block<3, 3>(5, 5);
+			fillxMI(M_, MDK_, Mxx, Kxx, bindex, damping, h);
+			Mxx = Mie.block<3, 3>(10, 10); Kxx = Kme.block<3, 3>(10, 10);
+			fillxMI(M_, MDK_, Mxx, Kxx, cindex, damping, h);
+
+			// Off-Diagonal x
+			Mxx = Mie.block<3, 3>(0, 5); Kxx = Kme.block<3, 3>(0, 5);
+			fillxxMI(M_, MDK_, Mxx, Kxx, aindex, bindex, damping, h);
+			Mxx = Mie.block<3, 3>(0, 10); Kxx = Kme.block<3, 3>(0, 10);
+			fillxxMI(M_, MDK_, Mxx, Kxx, aindex, cindex, damping, h);
+			Mxx = Mie.block<3, 3>(5, 10); Kxx = Kme.block<3, 3>(5, 10);
+			fillxxMI(M_, MDK_, Mxx, Kxx, bindex, cindex, damping, h);
+
+			// If has EOL componenent, Diagonal X
+			Matrix2d MXX, KXX;
+			if (face->v[0]->node->EoL) {
+				MXX = Mie.block<2, 2>(3, 3); KXX = Kme.block<2, 2>(3, 3);
+				fillXMI(M_, MDK_, MXX, KXX, aindexX, damping, h);
+			}
+			if (face->v[1]->node->EoL) {
+				MXX = Mie.block<2, 2>(8, 8); KXX = Kme.block<2, 2>(8, 8);
+				fillXMI(M_, MDK_, MXX, KXX, bindexX, damping, h);
+			}
+			if (face->v[2]->node->EoL) {
+				MXX = Mie.block<2, 2>(13, 13); KXX = Kme.block<2, 2>(13, 13);
+				fillXMI(M_, MDK_, MXX, KXX, cindexX, damping, h);
 			}
 
-			Matrix3d Mbb = Mie.block(5, 5, 3, 3);
-			Matrix3d Kbb = Kme.block(5, 5, 3, 3);
-			Matrix3d MDKbb = Mbb + damping(0) * h * Mbb + damping(1) * h * h * Kbb;
-			f.segment<3>(face->v[1]->node->index * 3) += (fie.segment<3>(5) + fme.segment<3>(3));
-			if (face->v[1]->node->EoL_index != -1)f.segment<2>(bindexX) += -F.transpose() * (fie.segment<3>(5) + fme.segment<3>(3));
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(bindex + j, bindex + k, Mbb(j, k)));
-					MDK_.push_back(T(bindex + j, bindex + k, MDKbb(j, k)));
-				}
+			// If has EOL componenent, Off-Diagonal X
+			if (face->v[0]->node->EoL && face->v[1]->node->EoL) {
+				MXX = Mie.block<2, 2>(3, 8); KXX = Kme.block<2, 2>(3, 8);
+				fillXXMI(M_, MDK_, MXX, KXX, aindexX, bindexX, damping, h);
+			}
+			if (face->v[0]->node->EoL && face->v[2]->node->EoL) {
+				MXX = Mie.block<2, 2>(3, 13); KXX = Kme.block<2, 2>(3, 13);
+				fillXXMI(M_, MDK_, MXX, KXX, aindexX, cindexX, damping, h);
+			}
+			if (face->v[1]->node->EoL && face->v[2]->node->EoL) {
+				MXX = Mie.block<2, 2>(8, 13); KXX = Kme.block<2, 2>(8, 13);
+				fillXXMI(M_, MDK_, MXX, KXX, bindexX, cindexX, damping, h);
 			}
 
-			Matrix3d Mcc = Mie.block(10, 10, 3, 3);
-			Matrix3d Kcc = Kme.block(10, 10, 3, 3);
-			Matrix3d MDKcc = Mcc + damping(0) * h * Mcc + damping(1) * h * h * Kcc;
-			f.segment<3>(face->v[2]->node->index * 3) += (fie.segment<3>(10) + fme.segment<3>(6));
-			if (face->v[2]->node->EoL_index != -1) f.segment<2>(cindexX) += -F.transpose() * (fie.segment<3>(10) + fme.segment<3>(6));
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(cindex + j, cindex + k, Mcc(j, k)));
-					MDK_.push_back(T(cindex + j, cindex + k, MDKcc(j, k)));
-				}
+			// X-x values
+			MatrixXd MXx, KXx;
+			if (face->v[0]->node->EoL) {
+				MXx = Mie.block<2, 3>(3, 0); KXx = Kme.block<2, 3>(3, 0);
+				fillXxMI(M_, MDK_, MXx, KXx, aindexX, aindex, damping, h);
+				MXx = Mie.block<2, 3>(3, 5); KXx = Kme.block<2, 3>(3, 5);
+				fillXxMI(M_, MDK_, MXx, KXx, aindexX, bindex, damping, h);
+				MXx = Mie.block<2, 3>(3, 10); KXx = Kme.block<2, 3>(3, 10);
+				fillXxMI(M_, MDK_, MXx, KXx, aindexX, cindex, damping, h);
 			}
-
-			Matrix3d Mab = Mie.block(0, 5, 3, 3);
-			Matrix3d Kab = Kme.block(0, 5, 3, 3);
-			Matrix3d MDKab = Mab + damping(0) * h * Mab + damping(1) * h * h * Kab;
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(aindex + j, bindex + k, Mab(j, k)));
-					M_.push_back(T(bindex + k, aindex + j, Mab(j, k)));
-					MDK_.push_back(T(aindex + j, bindex + k, MDKab(j, k)));
-					MDK_.push_back(T(bindex + k, aindex + j, MDKab(j, k)));
-				}
+			if (face->v[1]->node->EoL) {
+				MXx = Mie.block<2, 3>(8, 0); KXx = Kme.block<2, 3>(8, 0);
+				fillXxMI(M_, MDK_, MXx, KXx, bindexX, aindex, damping, h);
+				MXx = Mie.block<2, 3>(8, 5); KXx = Kme.block<2, 3>(8, 5);
+				fillXxMI(M_, MDK_, MXx, KXx, bindexX, bindex, damping, h);
+				MXx = Mie.block<2, 3>(8, 10); KXx = Kme.block<2, 3>(8, 10);
+				fillXxMI(M_, MDK_, MXx, KXx, bindexX, cindex, damping, h);
 			}
-
-			Matrix3d Mac = Mie.block(0, 10, 3, 3);
-			Matrix3d Kac = Kme.block(0, 10, 3, 3);
-			Matrix3d MDKac = Mac + damping(0) * h * Mac + damping(1) * h * h * Kac;
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(aindex + j, cindex + k, Mac(j, k)));
-					M_.push_back(T(cindex + k, aindex + j, Mac(j, k)));
-					MDK_.push_back(T(aindex + j, cindex + k, MDKac(j, k)));
-					MDK_.push_back(T(cindex + k, aindex + j, MDKac(j, k)));
-				}
-			}
-
-			Matrix3d Mbc = Mie.block(5, 10, 3, 3);
-			Matrix3d Kbc = Kme.block(5, 10, 3, 3);
-			Matrix3d MDKbc = Mbc + damping(0) * h * Mbc + damping(1) * h * h * Kbc;
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(bindex + j, cindex + k, Mbc(j, k)));
-					M_.push_back(T(cindex + k, bindex + j, Mbc(j, k)));
-					MDK_.push_back(T(bindex + j, cindex + k, MDKbc(j, k)));
-					MDK_.push_back(T(cindex + k, bindex + j, MDKbc(j, k)));
-				}
-			}
-
-			// X values
-			if (face->v[0]->node->EoL_index != -1) {
-				Matrix2d MAA = Mie.block(3, 3, 2, 2);
-				Matrix2d KAA = Kme.block(3, 3, 2, 2);
-				Matrix2d MDKAA = MAA + damping(0) * h * MAA + damping(1) * h * h * KAA;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						M_.push_back(T(aindexX + j, aindexX + k, MAA(j, k)));
-						MDK_.push_back(T(aindexX + j, aindexX + k, MDKAA(j, k)));
-					}
-				}
-			}
-
-			if (face->v[1]->node->EoL_index != -1) {
-				Matrix2d MBB = Mie.block(8, 8, 2, 2);
-				Matrix2d KBB = Kme.block(8, 8, 2, 2);
-				Matrix2d MDKBB = MBB + damping(0) * h * MBB + damping(1) * h * h * KBB;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						M_.push_back(T(bindexX + j, bindexX + k, MBB(j, k)));
-						MDK_.push_back(T(bindexX + j, bindexX + k, MDKBB(j, k)));
-					}
-				}
-			}
-
-			if (face->v[2]->node->EoL_index != -1) {
-				Matrix2d MCC = Mie.block(13, 13, 2, 2);
-				Matrix2d KCC = Kme.block(13, 13, 2, 2);
-				Matrix2d MDKCC = MCC + damping(0) * h * MCC + damping(1) * h * h * KCC;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						M_.push_back(T(cindexX + j, cindexX + k, MCC(j, k)));
-						MDK_.push_back(T(cindexX + j, cindexX + k, MDKCC(j, k)));
-					}
-				}
-			}
-
-			if (face->v[0]->node->EoL_index != -1 && face->v[1]->node->EoL_index != -1) {
-				Matrix2d MAB = Mie.block(3, 8, 2, 2);
-				Matrix2d KAB = Kme.block(3, 8, 2, 2);
-				Matrix2d MDKAB = MAB + damping(0) * h * MAB + damping(1) * h * h * KAB;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						M_.push_back(T(aindexX + j, bindexX + k, MAB(j, k)));
-						M_.push_back(T(bindexX + k, aindexX + j, MAB(j, k)));
-						MDK_.push_back(T(aindexX + j, bindexX + k, MDKAB(j, k)));
-						MDK_.push_back(T(bindexX + k, aindexX + j, MDKAB(j, k)));
-					}
-				}
-			}
-
-			if (face->v[0]->node->EoL_index != -1 && face->v[2]->node->EoL_index != -1) {
-				Matrix2d MAC = Mie.block(3, 13, 2, 2);
-				Matrix2d KAC = Kme.block(3, 13, 2, 2);
-				Matrix2d MDKAC = MAC + damping(0) * h * MAC + damping(1) * h * h * KAC;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						M_.push_back(T(aindexX + j, cindexX + k, MAC(j, k)));
-						M_.push_back(T(cindexX + k, aindexX + j, MAC(j, k)));
-						MDK_.push_back(T(aindexX + j, cindexX + k, MDKAC(j, k)));
-						MDK_.push_back(T(cindexX + k, aindexX + j, MDKAC(j, k)));
-					}
-				}
-			}
-
-			if (face->v[1]->node->EoL_index != -1 && face->v[2]->node->EoL_index != -1) {
-				Matrix2d MBC = Mie.block(8, 13, 2, 2);
-				Matrix2d KBC = Kme.block(8, 13, 2, 2);
-				Matrix2d MDKBC = MBC + damping(0) * h * MBC + damping(1) * h * h * KBC;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						M_.push_back(T(bindexX + j, cindexX + k, MBC(j, k)));
-						M_.push_back(T(cindexX + k, bindexX + j, MBC(j, k)));
-						MDK_.push_back(T(bindexX + j, cindexX + k, MDKBC(j, k)));
-						MDK_.push_back(T(cindexX + k, bindexX + j, MDKBC(j, k)));
-					}
-				}
-			}
-
-			// x-X values
-			if (face->v[0]->node->EoL_index != -1) {
-				MatrixXd MAa = Mie.block(3, 0, 2, 3);
-				MatrixXd KAa = Kme.block(3, 0, 2, 3);
-				MatrixXd MDKAa = MAa + damping(0) * h * MAa + damping(1) * h * h * KAa;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(aindexX + j, aindex + k, MAa(j, k)));
-						M_.push_back(T(aindex + k, aindexX + j, MAa(j, k)));
-						MDK_.push_back(T(aindexX + j, aindex + k, MDKAa(j, k)));
-						MDK_.push_back(T(aindex + k, aindexX + j, MDKAa(j, k)));
-					}
-				}
-
-				MatrixXd MAb = Mie.block(3, 5, 2, 3);
-				MatrixXd KAb = Kme.block(3, 5, 2, 3);
-				MatrixXd MDKAb = MAb + damping(0) * h * MAb + damping(1) * h * h * KAb;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(aindexX + j, bindex + k, MAb(j, k)));
-						M_.push_back(T(bindex + k, aindexX + j, MAb(j, k)));
-						MDK_.push_back(T(aindexX + j, bindex + k, MDKAb(j, k)));
-						MDK_.push_back(T(bindex + k, aindexX + j, MDKAb(j, k)));
-					}
-				}
-
-				MatrixXd MAc = Mie.block(3, 10, 2, 3);
-				MatrixXd KAc = Kme.block(3, 10, 2, 3);
-				MatrixXd MDKAc = MAc + damping(0) * h * MAc + damping(1) * h * h * KAc;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(aindexX + j, cindex + k, MAc(j, k)));
-						M_.push_back(T(cindex + k, aindexX + j, MAc(j, k)));
-						MDK_.push_back(T(aindexX + j, cindex + k, MDKAc(j, k)));
-						MDK_.push_back(T(cindex + k, aindexX + j, MDKAc(j, k)));
-					}
-				}
-			}
-
-			if (face->v[1]->node->EoL_index != -1) {
-				MatrixXd MBa = Mie.block(8, 0, 2, 3);
-				MatrixXd KBa = Kme.block(8, 0, 2, 3);
-				MatrixXd MDKBa = MBa + damping(0) * h * MBa + damping(1) * h * h * KBa;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(bindexX + j, aindex + k, MBa(j, k)));
-						M_.push_back(T(aindex + k, bindexX + j, MBa(j, k)));
-						MDK_.push_back(T(bindexX + j, aindex + k, MDKBa(j, k)));
-						MDK_.push_back(T(aindex + k, bindexX + j, MDKBa(j, k)));
-					}
-				}
-
-				MatrixXd MBb = Mie.block(8, 5, 2, 3);
-				MatrixXd KBb = Kme.block(8, 5, 2, 3);
-				MatrixXd MDKBb = MBb + damping(0) * h * MBb + damping(1) * h * h * KBb;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(bindexX + j, bindex + k, MBb(j, k)));
-						M_.push_back(T(bindex + k, bindexX + j, MBb(j, k)));
-						MDK_.push_back(T(bindexX + j, bindex + k, MDKBb(j, k)));
-						MDK_.push_back(T(bindex + k, bindexX + j, MDKBb(j, k)));
-					}
-				}
-
-				MatrixXd MBc = Mie.block(8, 10, 2, 3);
-				MatrixXd KBc = Kme.block(8, 10, 2, 3);
-				MatrixXd MDKBc = MBc + damping(0) * h * MBc + damping(1) * h * h * KBc;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(bindexX + j, cindex + k, MBc(j, k)));
-						M_.push_back(T(cindex + k, bindexX + j, MBc(j, k)));
-						MDK_.push_back(T(bindexX + j, cindex + k, MDKBc(j, k)));
-						MDK_.push_back(T(cindex + k, bindexX + j, MDKBc(j, k)));
-					}
-				}
-			}
-
-			if (face->v[2]->node->EoL_index != -1) {
-				MatrixXd MCa = Mie.block(13, 0, 2, 3);
-				MatrixXd KCa = Kme.block(13, 0, 2, 3);
-				MatrixXd MDKCa = MCa + damping(0) * h * MCa + damping(1) * h * h * KCa;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(cindexX + j, aindex + k, MCa(j, k)));
-						M_.push_back(T(aindex + k, cindexX + j, MCa(j, k)));
-						MDK_.push_back(T(cindexX + j, aindex + k, MDKCa(j, k)));
-						MDK_.push_back(T(aindex + k, cindexX + j, MDKCa(j, k)));
-					}
-				}
-
-				MatrixXd MCb = Mie.block(13, 5, 2, 3);
-				MatrixXd KCb = Kme.block(13, 5, 2, 3);
-				MatrixXd MDKCb = MCb + damping(0) * h * MCb + damping(1) * h * h * KCb;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(cindexX + j, bindex + k, MCb(j, k)));
-						M_.push_back(T(bindex + k, cindexX + j, MCb(j, k)));
-						MDK_.push_back(T(cindexX + j, bindex + k, MDKCb(j, k)));
-						MDK_.push_back(T(bindex + k, cindexX + j, MDKCb(j, k)));
-					}
-				}
-
-				MatrixXd MCc = Mie.block(13, 10, 2, 3);
-				MatrixXd KCc = Kme.block(13, 10, 2, 3);
-				MatrixXd MDKCc = MCc + damping(0) * h * MCc + damping(1) * h * h * KCc;
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						M_.push_back(T(cindexX + j, cindex + k, MCc(j, k)));
-						M_.push_back(T(cindex + k, cindexX + j, MCc(j, k)));
-						MDK_.push_back(T(cindexX + j, cindex + k, MDKCc(j, k)));
-						MDK_.push_back(T(cindex + k, cindexX + j, MDKCc(j, k)));
-					}
-				}
+			if (face->v[2]->node->EoL) {
+				MXx = Mie.block<2, 3>(13, 0); KXx = Kme.block<2, 3>(13, 0);
+				fillXxMI(M_, MDK_, MXx, KXx, cindexX, aindex, damping, h);
+				MXx = Mie.block<2, 3>(13, 5); KXx = Kme.block<2, 3>(13, 5);
+				fillXxMI(M_, MDK_, MXx, KXx, cindexX, bindex, damping, h);
+				MXx = Mie.block<2, 3>(13, 10); KXx = Kme.block<2, 3>(13, 10);
+				fillXxMI(M_, MDK_, MXx, KXx, cindexX, cindex, damping, h);
 			}
 		}
 		else {
@@ -415,75 +367,161 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, vector<T>& MDK_, c
 			VectorXd fie = Map<VectorXd>(fi, 9);
 			MatrixXd Mie = Map<MatrixXd>(Mi, 9, 9);
 
-			Matrix3d Maa = Mie.block(0, 0, 3, 3);
-			Matrix3d Kaa = Kme.block(0, 0, 3, 3);
-			Matrix3d MDKaa = Maa + damping(0) * h * Maa + damping(1) * h * h * Kaa;
 			f.segment<3>(aindex) += (fie.segment<3>(0) + fme.segment<3>(0));
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(aindex + j, aindex + k, Maa(j, k)));
-					MDK_.push_back(T(aindex + j, aindex + k, MDKaa(j, k)));
-				}
-			}
-
-			Matrix3d Mbb = Mie.block(3, 3, 3, 3);
-			Matrix3d Kbb = Kme.block(3, 3, 3, 3);
-			Matrix3d MDKbb = Mbb + damping(0) * h * Mbb + damping(1) * h * h * Kbb;
 			f.segment<3>(bindex) += (fie.segment<3>(3) + fme.segment<3>(3));
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(bindex + j, bindex + k, Mbb(j, k)));
-					MDK_.push_back(T(bindex + j, bindex + k, MDKbb(j, k)));
-				}
-			}
-
-			Matrix3d Mcc = Mie.block(6, 6, 3, 3);
-			Matrix3d Kcc = Kme.block(6, 6, 3, 3);
-			Matrix3d MDKcc = Mcc + damping(0) * h * Mcc + damping(1) * h * h * Kcc;
 			f.segment<3>(cindex) += (fie.segment<3>(6) + fme.segment<3>(6));
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(cindex + j, cindex + k, Mcc(j, k)));
-					MDK_.push_back(T(cindex + j, cindex + k, MDKcc(j, k)));
-				}
-			}
 
-			Matrix3d Mab = Mie.block(0, 3, 3, 3);
-			Matrix3d Kab = Kme.block(0, 3, 3, 3);
-			Matrix3d MDKab = Mab + damping(0) * h * Mab + damping(1) * h * h * Kab;
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(aindex + j, bindex + k, Mab(j, k)));
-					M_.push_back(T(bindex + k, aindex + j, Mab(j, k)));
-					MDK_.push_back(T(aindex + j, bindex + k, MDKab(j, k)));
-					MDK_.push_back(T(bindex + k, aindex + j, MDKab(j, k)));
-				}
-			}
+			Matrix3d Mxx, Kxx;
+			Mxx = Mie.block<3, 3>(0, 0); Kxx = Kme.block<3, 3>(0, 0);
+			fillxMI(M_, MDK_, Mxx, Kxx, aindex, damping, h);
+			Mxx = Mie.block<3, 3>(3, 3); Kxx = Kme.block<3, 3>(3, 3);
+			fillxMI(M_, MDK_, Mxx, Kxx, bindex, damping, h);
+			Mxx = Mie.block<3, 3>(6, 6); Kxx = Kme.block<3, 3>(6, 6);
+			fillxMI(M_, MDK_, Mxx, Kxx, cindex, damping, h);
 
-			Matrix3d Mac = Mie.block(0, 6, 3, 3);
-			Matrix3d Kac = Kme.block(0, 6, 3, 3);
-			Matrix3d MDKac = Mac + damping(0) * h * Mac + damping(1) * h * h * Kac;
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(aindex + j, cindex + k, Mac(j, k)));
-					M_.push_back(T(cindex + k, aindex + j, Mac(j, k)));
-					MDK_.push_back(T(aindex + j, cindex + k, MDKac(j, k)));
-					MDK_.push_back(T(cindex + k, aindex + j, MDKac(j, k)));
-				}
-			}
-
-			Matrix3d Mbc = Mie.block(3, 6, 3, 3);
-			Matrix3d Kbc = Kme.block(3, 6, 3, 3);
-			Matrix3d MDKbc = Mbc + damping(0) * h * Mbc + damping(1) * h * h * Kbc;
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(bindex + j, cindex + k, Mbc(j, k)));
-					M_.push_back(T(cindex + k, bindex + j, Mbc(j, k)));
-					MDK_.push_back(T(bindex + j, cindex + k, MDKbc(j, k)));
-					MDK_.push_back(T(cindex + k, bindex + j, MDKbc(j, k)));
-				}
-			}
+			Mxx = Mie.block<3, 3>(0, 3); Kxx = Kme.block<3, 3>(0, 3);
+			fillxxMI(M_, MDK_, Mxx, Kxx, aindex, bindex, damping, h);
+			Mxx = Mie.block<3, 3>(0, 6); Kxx = Kme.block<3, 3>(0, 6);
+			fillxxMI(M_, MDK_, Mxx, Kxx, aindex, cindex, damping, h);
+			Mxx = Mie.block<3, 3>(3, 6); Kxx = Kme.block<3, 3>(3, 6);
+			fillxxMI(M_, MDK_, Mxx, Kxx, bindex, cindex, damping, h);
 		}
+	}
+}
+
+void fillxB(vector<T>& MDK_, const Matrix3d& Kxx, int index)
+{
+	for (int j = 0; j < 3; j++) {
+		for (int k = 0; k < 3; k++) {
+			MDK_.push_back(T(index + j, index + k, Kxx(j, k)));
+		}
+	}
+}
+
+void fillxxB(vector<T>& MDK_, const Matrix3d& Kxx, int i0, int i1)
+{
+	for (int j = 0; j < 3; j++) {
+		for (int k = 0; k < 3; k++) {
+			MDK_.push_back(T(i0 + j, i1 + k, Kxx(j, k)));
+			MDK_.push_back(T(i1 + k, i0 + j, Kxx(j, k)));
+		}
+	}
+}
+
+void fillXB(vector<T>& MDK_, const Matrix2d& KXX, int index)
+{
+	for (int j = 0; j < 2; j++) {
+		for (int k = 0; k < 2; k++) {
+			MDK_.push_back(T(index + j, index + k, KXX(j, k)));
+		}
+	}
+}
+
+void fillXXB(vector<T>& MDK_, const Matrix2d& KXX, int i0, int i1)
+{
+	for (int j = 0; j < 2; j++) {
+		for (int k = 0; k < 2; k++) {
+			MDK_.push_back(T(i0 + j, i1 + k, KXX(j, k)));
+			MDK_.push_back(T(i1 + k, i0 + j, KXX(j, k)));
+		}
+	}
+}
+
+void fillXxB(vector<T>& MDK_, const MatrixXd& KXx, int i0, int i1)
+{
+	for (int j = 0; j < 2; j++) {
+		for (int k = 0; k < 3; k++) {
+			MDK_.push_back(T(i0 + j, i1 + k, KXx(j, k)));
+			MDK_.push_back(T(i1 + k, i0 + j, KXx(j, k)));
+		}
+	}
+}
+
+void fillEOLMembrane(const Vert* v0, const Vert* v1, const Vert* v2, const Vert* v3, VectorXd& fb, MatrixXd& Kb)
+{
+	MatrixXd Fa, Fb, Fc, Fd;
+	bool EOLA = v0->node->EoL; bool EOLB = v1->node->EoL; bool EOLC = v2->node->EoL; bool EOLD = v3->node->EoL;
+
+	if (EOLA) Fa = deform_grad_v(v0);
+	if (EOLB) Fb = deform_grad_v(v1);
+	if (EOLC) Fc = deform_grad_v(v2);
+	if (EOLD) Fd = deform_grad_v(v3);
+
+	Vector3d fba = fb.segment<3>(0); Vector3d fbb = fb.segment<3>(3); Vector3d fbc = fb.segment<3>(6); Vector3d fbd = fb.segment<3>(9);
+
+	Matrix3d Kbaa = Kb.block<3, 3>(0, 0); Matrix3d Kbab = Kb.block<3, 3>(0, 3); Matrix3d Kbac = Kb.block<3, 3>(0, 6); MatrixXd Kbad = Kb.block<3, 3>(0, 9);
+	Matrix3d Kbba = Kb.block<3, 3>(3, 0); Matrix3d Kbbb = Kb.block<3, 3>(3, 3); Matrix3d Kbbc = Kb.block<3, 3>(3, 6); MatrixXd Kbbd = Kb.block<3, 3>(3, 9);
+	Matrix3d Kbca = Kb.block<3, 3>(6, 0); Matrix3d Kbcb = Kb.block<3, 3>(6, 3); Matrix3d Kbcc = Kb.block<3, 3>(6, 6); MatrixXd Kbcd = Kb.block<3, 3>(6, 9);
+	Matrix3d Kbda = Kb.block<3, 3>(9, 0); Matrix3d Kbdb = Kb.block<3, 3>(9, 3); Matrix3d Kbdc = Kb.block<3, 3>(9, 6); MatrixXd Kbdd = Kb.block<3, 3>(9, 9);
+
+	int ja = 0; int jA = 3; int jb = 5; int jB = 8; int jc = 10; int jC = 13; int jd = 15; int jD = 18;
+
+	fb.segment<3>(ja) = fba; fb.segment<3>(jb) = fbb; fb.segment<3>(jc) = fbc; fb.segment<3>(jd) = fbd;
+
+	Kb.block<3, 3>(ja, ja) = Kbaa; Kb.block<3, 3>(ja, jb) = Kbab; Kb.block<3, 3>(ja, jc) = Kbac; Kb.block<3, 3>(ja, jd) = Kbad;
+	/*Kd.block<3, 3>(jb, ja) = Kbba;*/ Kb.block<3, 3>(jb, jb) = Kbbb; Kb.block<3, 3>(jb, jc) = Kbbc; Kb.block<3, 3>(jb, jd) = Kbbd;
+	/*Kd.block<3, 3>(jc, ja) = Kbca; Kb.block<3, 3>(jc, jb) = Kbcb;*/ Kb.block<3, 3>(jc, jc) = Kbcc; Kb.block<3, 3>(jc, jd) = Kbcd;
+	/*Kd.block<3, 3>(jd, ja) = Kbda; Kb.block<3, 3>(jd, jb) = Kbdb; Kb.block<3, 3>(jd, jc) = Kbdc;*/ Kb.block<3, 3>(jd, jd) = Kbdd;
+
+	if (EOLA) {
+		fb.segment<2>(jA) = -Fa.transpose() * fba;
+		Kb.block<2, 2>(jA, jA) = Fa.transpose() * Kbaa * Fa;
+	}
+	if (EOLB) {
+		fb.segment<2>(jB) = -Fb.transpose() * fbb;
+		Kb.block<2, 2>(jB, jB) = Fb.transpose() * Kbbb * Fb;
+	}
+	if (EOLC) {
+		fb.segment<2>(jC) = -Fc.transpose() * fbc;
+		Kb.block<2, 2>(jC, jC) = Fc.transpose() * Kbcc * Fc;
+	}
+	if (EOLD) {
+		fb.segment<2>(jD) = -Fd.transpose() * fbd;
+		Kb.block<2, 2>(jD, jD) = Fd.transpose() * Kbdd * Fd;
+	}
+
+	if (EOLA && EOLB) {
+		Kb.block<2, 2>(jA, jB) = Fa.transpose() * Kbab * Fb;
+	}
+	if (EOLA && EOLC) {
+		Kb.block<2, 2>(jA, jC) = Fa.transpose() * Kbac * Fc;
+	}
+	if (EOLA && EOLD) {
+		Kb.block<2, 2>(jA, jD) = Fa.transpose() * Kbad * Fd;
+	}
+	if (EOLB && EOLC) {
+		Kb.block<2, 2>(jB, jC) = Fb.transpose() * Kbbc * Fc;
+	}
+	if (EOLB && EOLD) {
+		Kb.block<2, 2>(jB, jD) = Fb.transpose() * Kbbd * Fd;
+	}
+	if (EOLC && EOLD) {
+		Kb.block<2, 2>(jC, jD) = Fc.transpose() * Kbcd * Fd;
+	}
+
+	if (EOLA) {
+		Kb.block<2, 3>(jA, ja) = -Fa.transpose() * Kbaa;
+		Kb.block<2, 3>(jA, jb) = -Fa.transpose() * Kbab;
+		Kb.block<2, 3>(jA, jc) = -Fa.transpose() * Kbac;
+		Kb.block<2, 3>(jA, jd) = -Fa.transpose() * Kbad;
+	}
+	if (EOLB) {
+		Kb.block<2, 3>(jB, ja) = -Fb.transpose() * Kbba;
+		Kb.block<2, 3>(jB, jb) = -Fb.transpose() * Kbbb;
+		Kb.block<2, 3>(jB, jc) = -Fb.transpose() * Kbbc;
+		Kb.block<2, 3>(jB, jd) = -Fb.transpose() * Kbbd;
+	}
+	if (EOLC) {
+		Kb.block<2, 3>(jC, ja) = -Fc.transpose() * Kbca;
+		Kb.block<2, 3>(jC, jb) = -Fc.transpose() * Kbcb;
+		Kb.block<2, 3>(jC, jc) = -Fc.transpose() * Kbcc;
+		Kb.block<2, 3>(jC, jd) = -Fc.transpose() * Kbcd;
+	}
+	if (EOLD) {
+		Kb.block<2, 3>(jD, ja) = -Fd.transpose() * Kbda;
+		Kb.block<2, 3>(jD, jb) = -Fd.transpose() * Kbdb;
+		Kb.block<2, 3>(jD, jc) = -Fd.transpose() * Kbdc;
+		Kb.block<2, 3>(jD, jd) = -Fd.transpose() * Kbdd;
 	}
 }
 
@@ -575,405 +613,149 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 			Kbe.block(jC, jA, 2, 2) = F.transpose() * Kbca * F; Kbe.block(jC, jB, 2, 2) = F.transpose() * Kbcb * F; Kbe.block(jC, jC, 2, 2) = F.transpose() * Kbcc * F; Kbe.block(jC, jD, 2, 2) = F.transpose() * Kbcd * F;
 			Kbe.block(jD, jA, 2, 2) = F.transpose() * Kbda * F; Kbe.block(jD, jB, 2, 2) = F.transpose() * Kbdb * F; Kbe.block(jD, jC, 2, 2) = F.transpose() * Kbdc * F; Kbe.block(jD, jD, 2, 2) = F.transpose() * Kbdd * F;
 
-			// x values
-			Matrix3d K00 = damping(1) * h * h * Kbe.block(0, 0, 3, 3);
 			f.segment<3>(aindex) += fbe.segment<3>(0);
 			if (to_eolA) f.segment<2>(aindexX) += -F.transpose() * fbe.segment<3>(0);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(aindex + j, aindex + k, K00(j, k)));
-				}
-			}
 
-			Matrix3d K11 = damping(1) * h * h * Kbe.block(5, 5, 3, 3);
 			f.segment<3>(bindex) += fbe.segment<3>(3);
 			if (to_eolB) f.segment<2>(bindexX) += -F.transpose() * fbe.segment<3>(3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(bindex + j, bindex + k, K11(j, k)));
-				}
-			}
 
-			Matrix3d K22 = damping(1) * h * h * Kbe.block(10, 10, 3, 3);
 			f.segment<3>(cindex) += fbe.segment<3>(6);
 			if (to_eolC) f.segment<2>(cindexX) += -F.transpose() * fbe.segment<3>(6);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(cindex + j, cindex + k, K22(j, k)));
-				}
-			}
 
-			Matrix3d K33 = damping(1) * h * h * Kbe.block(15, 15, 3, 3);
 			f.segment<3>(dindex) += fbe.segment<3>(9);
 			if (to_eolD) f.segment<2>(dindexX) += -F.transpose() * fbe.segment<3>(9);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(dindex + j, dindex + k, K33(j, k)));
-				}
-			}
 
-			Matrix3d K01 = damping(1) * h * h * Kbe.block(0, 5, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(aindex + j, bindex + k, K01(j, k)));
-					MDK_.push_back(T(bindex + k, aindex + j, K01(j, k)));
-				}
-			}
+			Matrix3d Kxx;
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(0, 0);
+			fillxB(MDK_, Kxx, aindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(5, 5);
+			fillxB(MDK_, Kxx, bindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(10, 10);
+			fillxB(MDK_, Kxx, cindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(15, 15);
+			fillxB(MDK_, Kxx, dindex);
 
-			Matrix3d K02 = damping(1) * h * h * Kbe.block(0, 10, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(aindex + j, cindex + k, K02(j, k)));
-					MDK_.push_back(T(cindex + k, aindex + j, K02(j, k)));
-				}
-			}
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(0, 5);
+			fillxxB(MDK_, Kxx, aindex, bindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(0, 10);
+			fillxxB(MDK_, Kxx, aindex, cindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(0, 15);
+			fillxxB(MDK_, Kxx, aindex, dindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(5, 10);
+			fillxxB(MDK_, Kxx, bindex, cindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(5, 15);
+			fillxxB(MDK_, Kxx, bindex, dindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(10, 15);
+			fillxxB(MDK_, Kxx, cindex, dindex);
 
-			Matrix3d K03 = damping(1) * h * h * Kbe.block(0, 15, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(aindex + j, dindex + k, K03(j, k)));
-					MDK_.push_back(T(dindex + k, aindex + j, K03(j, k)));
-				}
-			}
-
-			Matrix3d K12 = damping(1) * h * h * Kbe.block(5, 10, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(bindex + j, cindex + k, K12(j, k)));
-					MDK_.push_back(T(cindex + k, bindex + j, K12(j, k)));
-				}
-			}
-
-			Matrix3d K13 = damping(1) * h * h * Kbe.block(5, 15, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(bindex + j, dindex + k, K13(j, k)));
-					MDK_.push_back(T(dindex + k, bindex + j, K13(j, k)));
-				}
-			}
-
-			Matrix3d K23 = damping(1) * h * h * Kbe.block(10, 15, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(cindex + j, dindex + k, K23(j, k)));
-					MDK_.push_back(T(dindex + k, cindex + j, K23(j, k)));
-				}
-			}
-
-			// X values
+			Matrix2d KXX;
 			if (to_eolA) {
-				Matrix2d K00X = damping(1) * h * h * Kbe.block(3, 3, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(aindexX + j, aindexX + k, K00X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(3, 3);
+				fillXB(MDK_, KXX, aindexX);
 			}
-
 			if (to_eolB) {
-				Matrix2d K11X = damping(1) * h * h * Kbe.block(8, 8, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(bindexX + j, bindexX + k, K11X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(8, 8);
+				fillXB(MDK_, KXX, bindexX);
 			}
-
 			if (to_eolC) {
-				Matrix2d K22X = damping(1) * h * h * Kbe.block(13, 13, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(cindexX + j, cindexX + k, K22X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(13, 13);
+				fillXB(MDK_, KXX, cindexX);
 			}
-
 			if (to_eolD) {
-				Matrix2d K33X = damping(1) * h * h * Kbe.block(18, 18, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(dindexX + j, dindexX + k, K33X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(18, 18);
+				fillXB(MDK_, KXX, dindexX);
 			}
 
 			if (to_eolA && to_eolB) {
-				Matrix2d K01X = damping(1) * h * h * Kbe.block(3, 8, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(aindexX + j, bindexX + k, K01X(j, k)));
-						MDK_.push_back(T(bindexX + k, aindexX + j, K01X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(3, 8);
+				fillXXB(MDK_, KXX, aindexX, bindexX);
 			}
-
 			if (to_eolA && to_eolC) {
-				Matrix2d K02X = damping(1) * h * h * Kbe.block(3, 13, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(aindexX + j, cindexX + k, K02X(j, k)));
-						MDK_.push_back(T(cindexX + k, aindexX + j, K02X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(3, 13);
+				fillXXB(MDK_, KXX, aindexX, cindexX);
 			}
-
 			if (to_eolA && to_eolD) {
-				Matrix2d K03X = damping(1) * h * h * Kbe.block(3, 18, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(aindexX + j, dindexX + k, K03X(j, k)));
-						MDK_.push_back(T(dindexX + k, aindexX + j, K03X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(3, 18);
+				fillXXB(MDK_, KXX, aindexX, dindexX);
 			}
-
 			if (to_eolB && to_eolC) {
-				Matrix2d K12X = damping(1) * h * h * Kbe.block(8, 13, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(bindexX + j, cindexX + k, K12X(j, k)));
-						MDK_.push_back(T(cindexX + k, bindexX + j, K12X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(8, 13);
+				fillXXB(MDK_, KXX, bindexX, cindexX);
 			}
-
 			if (to_eolB && to_eolD) {
-				Matrix2d K13X = damping(1) * h * h * Kbe.block(8, 18, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(bindexX + j, dindexX + k, K13X(j, k)));
-						MDK_.push_back(T(dindexX + k, bindexX + j, K13X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(8, 18);
+				fillXXB(MDK_, KXX, bindexX, dindexX);
 			}
-
 			if (to_eolC && to_eolD) {
-				Matrix2d K23X = damping(1) * h * h * Kbe.block(13, 18, 2, 2);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 2; k++) {
-						MDK_.push_back(T(cindexX + j, dindexX + k, K23X(j, k)));
-						MDK_.push_back(T(dindexX + k, cindexX + j, K23X(j, k)));
-					}
-				}
+				KXX = damping(1) * h * h * Kbe.block<2, 2>(13, 18);
+				fillXXB(MDK_, KXX, cindexX, dindexX);
 			}
 
-			// x-X values
+			MatrixXd KXx;
 			if (to_eolA) {
-				MatrixXd KAa = damping(1) * h * h * Kbe.block(3, 0, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(aindexX + j, aindex + k, KAa(j, k)));
-						MDK_.push_back(T(aindex + k, aindexX + j, KAa(j, k)));
-					}
-				}
-
-				MatrixXd KAb = damping(1) * h * h * Kbe.block(3, 5, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(aindexX + j, bindex + k, KAb(j, k)));
-						MDK_.push_back(T(bindex + k, aindexX + j, KAb(j, k)));
-					}
-				}
-
-				MatrixXd KAc = damping(1) * h * h * Kbe.block(3, 10, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(aindexX + j, cindex + k, KAc(j, k)));
-						MDK_.push_back(T(cindex + k, aindexX + j, KAc(j, k)));
-					}
-				}
-
-				MatrixXd KAd = damping(1) * h * h * Kbe.block(3, 15, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(aindexX + j, dindex + k, KAd(j, k)));
-						MDK_.push_back(T(dindex + k, aindexX + j, KAd(j, k)));
-					}
-				}
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(3, 0);
+				fillXxB(MDK_, KXx, aindexX, aindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(3, 5);
+				fillXxB(MDK_, KXx, aindexX, bindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(3, 10);
+				fillXxB(MDK_, KXx, aindexX, cindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(3, 15);
+				fillXxB(MDK_, KXx, aindexX, dindex);
 			}
-
 			if (to_eolB) {
-				MatrixXd KBa = damping(1) * h * h * Kbe.block(8, 0, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(bindexX + j, aindex + k, KBa(j, k)));
-						MDK_.push_back(T(aindex + k, bindexX + j, KBa(j, k)));
-					}
-				}
-
-				MatrixXd KBb = damping(1) * h * h * Kbe.block(8, 5, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(bindexX + j, bindex + k, KBb(j, k)));
-						MDK_.push_back(T(bindex + k, bindexX + j, KBb(j, k)));
-					}
-				}
-
-				MatrixXd KBc = damping(1) * h * h * Kbe.block(8, 10, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(bindexX + j, cindex + k, KBc(j, k)));
-						MDK_.push_back(T(cindex + k, bindexX + j, KBc(j, k)));
-					}
-				}
-
-				MatrixXd KBd = damping(1) * h * h * Kbe.block(8, 15, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(bindexX + j, dindex + k, KBc(j, k)));
-						MDK_.push_back(T(dindex + k, bindexX + j, KBc(j, k)));
-					}
-				}
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 0);
+				fillXxB(MDK_, KXx, bindexX, aindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 5);
+				fillXxB(MDK_, KXx, bindexX, bindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 10);
+				fillXxB(MDK_, KXx, bindexX, cindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 15);
+				fillXxB(MDK_, KXx, bindexX, dindex);
 			}
-
 			if (to_eolC) {
-				MatrixXd KCa = damping(1) * h * h * Kbe.block(13, 0, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(cindexX + j, aindex + k, KCa(j, k)));
-						MDK_.push_back(T(aindex + k, cindexX + j, KCa(j, k)));
-					}
-				}
-
-				MatrixXd KCb = damping(1) * h * h * Kbe.block(13, 5, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(cindexX + j, bindex + k, KCb(j, k)));
-						MDK_.push_back(T(bindex + k, cindexX + j, KCb(j, k)));
-					}
-				}
-
-				MatrixXd KCc = damping(1) * h * h * Kbe.block(13, 10, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(cindexX + j, cindex + k, KCc(j, k)));
-						MDK_.push_back(T(cindex + k, cindexX + j, KCc(j, k)));
-					}
-				}
-
-				MatrixXd KCd = damping(1) * h * h * Kbe.block(13, 15, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(cindexX + j, dindex + k, KCd(j, k)));
-						MDK_.push_back(T(dindex + k, cindexX + j, KCd(j, k)));
-					}
-				}
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 0);
+				fillXxB(MDK_, KXx, cindexX, aindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 5);
+				fillXxB(MDK_, KXx, cindexX, bindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 10);
+				fillXxB(MDK_, KXx, cindexX, cindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 15);
+				fillXxB(MDK_, KXx, cindexX, dindex);
 			}
-
 			if (to_eolD) {
-				MatrixXd KDa = damping(1) * h * h * Kbe.block(18, 0, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(dindexX + j, aindex + k, KDa(j, k)));
-						MDK_.push_back(T(aindex + k, dindexX + j, KDa(j, k)));
-					}
-				}
-
-				MatrixXd KDb = damping(1) * h * h * Kbe.block(18, 5, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(dindexX + j, bindex + k, KDb(j, k)));
-						MDK_.push_back(T(bindex + k, dindexX + j, KDb(j, k)));
-					}
-				}
-
-				MatrixXd KDc = damping(1) * h * h * Kbe.block(18, 10, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(dindexX + j, cindex + k, KDc(j, k)));
-						MDK_.push_back(T(cindex + k, dindexX + j, KDc(j, k)));
-					}
-				}
-
-				MatrixXd KDd = damping(1) * h * h * Kbe.block(18, 15, 2, 3);
-				for (int j = 0; j < 2; j++) {
-					for (int k = 0; k < 3; k++) {
-						MDK_.push_back(T(dindexX + j, dindex + k, KDd(j, k)));
-						MDK_.push_back(T(dindex + k, dindexX + j, KDd(j, k)));
-					}
-				}
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 0);
+				fillXxB(MDK_, KXx, dindexX, aindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 5);
+				fillXxB(MDK_, KXx, dindexX, bindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 10);
+				fillXxB(MDK_, KXx, dindexX, cindex);
+				KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 15);
+				fillXxB(MDK_, KXx, dindexX, dindex);
 			}
 		}
 		else {
-			Matrix3d K00 = damping(1) * h * h * Kbe.block(0, 0, 3, 3);
-			f.segment<3>(aindex) += fbe.segment<3>(0);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(aindex + j, aindex + k, K00(j, k)));
-				}
-			}
+			Matrix3d Kxx;
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(0, 0);
+			fillxB(MDK_, Kxx, aindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(3, 3);
+			fillxB(MDK_, Kxx, bindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(6, 6);
+			fillxB(MDK_, Kxx, cindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(9, 9);
+			fillxB(MDK_, Kxx, dindex);
 
-			Matrix3d K11 = damping(1) * h * h * Kbe.block(3, 3, 3, 3);
-			f.segment<3>(bindex) += fbe.segment<3>(3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(bindex + j, bindex + k, K11(j, k)));
-				}
-			}
-
-			Matrix3d K22 = damping(1) * h * h * Kbe.block(6, 6, 3, 3);
-			f.segment<3>(cindex) += fbe.segment<3>(6);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(cindex + j, cindex + k, K22(j, k)));
-				}
-			}
-
-			Matrix3d K33 = damping(1) * h * h * Kbe.block(9, 9, 3, 3);
-			f.segment<3>(dindex) += fbe.segment<3>(9);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(dindex + j, dindex + k, K33(j, k)));
-				}
-			}
-
-			Matrix3d K01 = damping(1) * h * h * Kbe.block(0, 3, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(aindex + j, bindex + k, K01(j, k)));
-					MDK_.push_back(T(bindex + k, aindex + j, K01(j, k)));
-				}
-			}
-
-			Matrix3d K02 = damping(1) * h * h * Kbe.block(0, 6, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(aindex + j, cindex + k, K02(j, k)));
-					MDK_.push_back(T(cindex + k, aindex + j, K02(j, k)));
-				}
-			}
-
-			Matrix3d K03 = damping(1) * h * h * Kbe.block(0, 9, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(aindex + j, dindex + k, K03(j, k)));
-					MDK_.push_back(T(dindex + k, aindex + j, K03(j, k)));
-				}
-			}
-
-			Matrix3d K12 = damping(1) * h * h * Kbe.block(3, 6, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(bindex + j, cindex + k, K12(j, k)));
-					MDK_.push_back(T(cindex + k, bindex + j, K12(j, k)));
-				}
-			}
-
-			Matrix3d K13 = damping(1) * h * h * Kbe.block(3, 9, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(bindex + j, dindex + k, K13(j, k)));
-					MDK_.push_back(T(dindex + k, bindex + j, K13(j, k)));
-				}
-			}
-
-			Matrix3d K23 = damping(1) * h * h * Kbe.block(6, 9, 3, 3);
-			for (int j = 0; j < 3; j++) {
-				for (int k = 0; k < 3; k++) {
-					MDK_.push_back(T(cindex + j, dindex + k, K23(j, k)));
-					MDK_.push_back(T(dindex + k, cindex + j, K23(j, k)));
-				}
-			}
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(0, 3);
+			fillxxB(MDK_, Kxx, aindex, bindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(0, 6);
+			fillxxB(MDK_, Kxx, aindex, cindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(0, 9);
+			fillxxB(MDK_, Kxx, aindex, dindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(3, 6);
+			fillxxB(MDK_, Kxx, bindex, cindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(3, 9);
+			fillxxB(MDK_, Kxx, bindex, dindex);
+			Kxx = damping(1) * h * h * Kbe.block<3, 3>(6, 9);
+			fillxxB(MDK_, Kxx, cindex, dindex);
 		}
 	}
 }

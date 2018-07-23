@@ -9,4 +9,6 @@
 
 Eigen::MatrixXd deform_grad(const Face *f);
 
+Eigen::MatrixXd deform_grad_v(const Vert* v);
+
 #endif
