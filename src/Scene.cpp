@@ -20,6 +20,7 @@ using namespace std;
 using namespace Eigen;
 
 Scene::Scene() : 
+	t(0.0),
 	h(0.005),
 	grav(Vector3d(0.0,0.0,-9.8)),
 	part(0)
@@ -34,7 +35,7 @@ void Scene::load(const string &RESOURCE_DIR)
 	obs->load(RESOURCE_DIR);
 }
 
-void Scene::init(const bool online, const bool exportObjs)
+void Scene::init(const bool& online, const bool& exportObjs, const string& OUTPUT_DIR)
 {
 #ifdef EOLC_ONLINE
 	if (online) {
@@ -43,13 +44,19 @@ void Scene::init(const bool online, const bool exportObjs)
 	}
 #endif
 
-	dynamic_remesh(cloth->mesh);
-	set_indices(cloth->mesh);
+	if (REMESHon) {
+		dynamic_remesh(cloth->mesh);
+		set_indices(cloth->mesh);
+	}
 
 	cloth->consts->init(obs);
 
 	if (exportObjs) {
-
+		brender = BrenderManager::getInstance();
+		brender->setExportDir(OUTPUT_DIR);
+		brender->add(cloth);
+		obs->addExport(brender);
+		brender->exportBrender(t);
 	}
 }
 
@@ -62,41 +69,37 @@ void printstate(Mesh& mesh)
 	}
 }
 
-void Scene::step()
+void Scene::step(const bool& online, const bool& exportObjs)
 {
 	if (part != 0) {
 		cout << "Please finish the partial step before making a full step" << endl;
 		return;
 	}
-	cloth->updatePreviousMesh();
-	//dynamic_remesh(cloth->mesh);
-	//set_indices(cloth->mesh);
-	CD(cloth->mesh, obs, cls);
-	//dynamic_remesh(cloth->mesh);
-	preprocess(cloth->mesh, cls);
-	//reindex_nodes(cloth->mesh.nodes);
-	//set_indices(cloth->mesh);
-	cout << "pre" << endl;
-	dynamic_remesh(cloth->mesh);
-	set_indices(cloth->mesh);
-	//preprocessClean(cloth->mesh);
-	//set_indices(cloth->mesh);
-	//cloth->consts->fill(cloth->mesh, obs, h);
-	//printstate(cloth->mesh);
-	//cloth->velocityTransfer();
-	//cloth->updateBuffers();
-	cloth->step(GS, obs, grav, h);
+	cloth->updateFix(t);
+	if (EOLon) {
+		cloth->updatePreviousMesh();
+		CD(cloth->mesh, obs, cls);
+		preprocess(cloth->mesh, cls);
+		cout << "pre" << endl;
+	}
+	if (REMESHon) {
+		dynamic_remesh(cloth->mesh);
+		set_indices(cloth->mesh);
+	}
+	cloth->step(GS, obs, grav, h, REMESHon, online);
 	obs->step(h);
 	cls.clear();
 	//mesh2m(cloth->mesh, "mesh.m", true);
+	if (exportObjs) brender->exportBrender(t);
 	cout << "step" << endl;
+	t += h;
 }
 
 void Scene::partialStep()
 {
 	if (part == 0) {
-		dynamic_remesh(cloth->mesh);
-		set_indices(cloth->mesh);
+		cloth->updatePreviousMesh();
+		cloth->updateFix(t);
 		CD(cloth->mesh, obs, cls);
 		cout << "CD" << endl;
 	}
@@ -112,7 +115,8 @@ void Scene::partialStep()
 		cloth->updateBuffers();
 	}
 	else if (part == 9) {
-		cloth->step(GS, obs, grav, h);;
+		cloth->step(GS, obs, grav, h, REMESHon, true);
+		obs->step(h);
 		cout << "Finished step" << endl;
 		cls.clear();
 		part = -1;

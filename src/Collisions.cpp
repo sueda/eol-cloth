@@ -27,7 +27,7 @@ void CD(const Mesh& mesh, const shared_ptr<Obstacles> obs, std::vector<std::shar
 	}
 	
 	// Compute these first so they form the base of our collision list
-	btc::pointTriCollision(cls, obs->cdthreshold, obs->points->pxyz, obs->points->norms, verts2, faces2, false);
+	btc::pointTriCollision(cls, obs->cdthreshold, obs->points->pxyz, obs->points->norms, verts2, faces2, true);
 
 	int c = cls.size();
 	for (int b = 0; b < obs->num_boxes; b++) {

@@ -8,8 +8,6 @@
 #include <map>
 #include <mosek.h>
 
-#define kMosekLicensePath "C:/Users/weid691/mosek/mosek.lic"
-
 struct MosekVarBounds;
 struct MosekObjectiveMatrix;
 struct MosekObjectiveVector;

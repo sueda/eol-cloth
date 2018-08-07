@@ -12,8 +12,16 @@
 
 void mat_s2s_file(const Eigen::SparseMatrix<double>& mat, const std::string &var_name, const std::string &file_name, const bool& overwrite);
 
+void mat_to_file(const Eigen::MatrixXd& mat, const std::string &var_name, const std::string &file_name, const bool &overwrite);
+
+void mat_to_file(const Eigen::MatrixXi& mat, const std::string &var_name, const std::string &file_name, const bool &overwrite);
+
 void vec_to_file(const Eigen::VectorXd& vec, const std::string &var_name, const std::string &file_name, const bool &overwrite);
 
+void vec_to_file(const Eigen::VectorXi& vec, const std::string &var_name, const std::string &file_name, const bool &overwrite);
+
 void mesh2m(const Mesh& mesh, const std::string &file_name, const bool &overwrite);
+
+void double_to_file(double d, const std::string &var_name, const std::string &file_name, const bool &overwrite);
 
 #endif

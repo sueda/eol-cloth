@@ -8,7 +8,6 @@
 #define EIGEN_DONT_ALIGN_STATICALLY
 #include <Eigen/Dense>
 
-#include "BrenderManager.h"
 #include "Brenderable.h"
 
 #ifdef EOLC_ONLINE
@@ -26,7 +25,7 @@ public:
 
 	std::shared_ptr<Rigid> rigid;
 
-	Box(const std::shared_ptr<Shape> shape);
+	Box(const std::shared_ptr<Shape> shape, std::string en);
 	virtual ~Box();
 	void step(const double h);
 
@@ -55,6 +54,7 @@ public:
 
 
 	// Export
+	std::string exportName;
 	int getBrenderCount() const;
 	std::vector<std::string> getBrenderNames() const;
 	void exportBrender(std::vector< std::shared_ptr< std::ofstream > > outfiles) const;

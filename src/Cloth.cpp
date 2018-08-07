@@ -1,10 +1,12 @@
 #include "Cloth.h"
 #include "conversions.h"
 #include "Obstacles.h"
+#include "FixedList.h"
 #include "Constraints.h"
 #include "Forces.h"
 #include "GeneralizedSolver.h"
 #include "UtilEOL.h"
+#include "matlabOutputs.h"
 
 #include "external\ArcSim\mesh.hpp"
 #include "external\ArcSim\io.hpp"
@@ -24,7 +26,8 @@
 using namespace std;
 using namespace Eigen;
 
-Cloth::Cloth()
+Cloth::Cloth() :
+	fsindex(0)
 {
 	consts = make_shared<Constraints>();
 	myForces = make_shared<Forces>();
@@ -298,21 +301,71 @@ void Cloth::velocityTransfer()
 	}
 }
 
+void generateMatlab(const SparseMatrix<double>& M,
+	const SparseMatrix<double>& MDK, const VectorXd& b,
+	const SparseMatrix<double>& Aeq, const VectorXd& beq,
+	const SparseMatrix<double>& Aineq, const VectorXd& bineq,
+	VectorXd& v)
+{
+	mat_s2s_file(M, "M", "solver.m", false);
+	mat_s2s_file(MDK, "MDK", "solver.m", false);
+	vec_to_file(b, "b", "solver.m", false);
+	mat_s2s_file(Aeq, "Aeq", "solver.m", false);
+	vec_to_file(beq, "beq", "solver.m", false);
+	mat_s2s_file(Aineq, "Aineq", "solver.m", false);
+	vec_to_file(bineq, "bineq", "solver.m", false);
+	vec_to_file(v, "v_input", "solver.m", false);
+}
+
 void Cloth::solve(shared_ptr<GeneralizedSolver> gs, double h)
 {
 	VectorXd b = -(myForces->M * v + h * myForces->f);
-	bool success = gs->velocitySolve(false, consts->hasCollisions,
+	generateMatlab(myForces->M,
 		myForces->MDK, b,
 		consts->Aeq, consts->beq,
 		consts->Aineq, consts->bineq,
 		v);
+	bool success = gs->velocitySolve(consts->hasFixed, consts->hasCollisions,
+		myForces->MDK, b,
+		consts->Aeq, consts->beq,
+		consts->Aineq, consts->bineq,
+		v);
+	//cout << v << endl;
 }
 
-void Cloth::step(shared_ptr<GeneralizedSolver> gs, shared_ptr<Obstacles> obs, const Vector3d& grav, double h)
+void Cloth::step(shared_ptr<GeneralizedSolver> gs, shared_ptr<Obstacles> obs, const Vector3d& grav, double h, const bool& REMESHon, const bool& online)
 {
-	consts->fill(mesh, obs, h);
-	velocityTransfer();
+
+
+	consts->fill(mesh, obs, fs[fsindex], h, online);
+	if(REMESHon) velocityTransfer();
 	myForces->fill(mesh, material, grav, h);
+	double_to_file(h, "h", "solver.m", true);
+	double_to_file(grav(2), "grav", "solver.m", false);
+	double_to_file(material.density, "rho", "solver.m", false);
+	double_to_file(material.e, "e", "solver.m", false);
+	double_to_file(material.nu, "nu", "solver.m", false);
+	MatrixXd x_X(mesh.nodes.size(), 5);
+	VectorXi isEoL(mesh.nodes.size());
+	isEoL.setZero();
+	for (int i = 0; i < mesh.nodes.size(); i++) {
+		if (mesh.nodes[i]->EoL) isEoL(i) = 1;
+		x_X(i, 0) = mesh.nodes[i]->x[0];
+		x_X(i, 1) = mesh.nodes[i]->x[1];
+		x_X(i, 2) = mesh.nodes[i]->x[2];
+		x_X(i, 3) = mesh.nodes[i]->verts[0]->u[0];
+		x_X(i, 4) = mesh.nodes[i]->verts[0]->u[1];
+	}
+	mat_to_file(x_X, "x_X", "solver.m", false);
+	vec_to_file(isEoL, "isEol","solver.m",false);
+	MatrixXi faces2(3, mesh.faces.size());
+	for (int i = 0; i < mesh.faces.size(); i++) {
+		faces2.col(i) = Vector3i(mesh.faces[i]->v[0]->node->index, mesh.faces[i]->v[1]->node->index, mesh.faces[i]->v[2]->node->index);
+	}
+	VectorXi vvv(3);
+	vvv << 1, 1, 1;
+	mat_to_file(faces2.colwise() += vvv, "faces", "solver.m",false);
+	vec_to_file(myForces->f, "f", "solver.m", false);
 	solve(gs, h);
 
 	for (int n = 0; n < mesh.nodes.size(); n++) {
@@ -323,6 +376,7 @@ void Cloth::step(shared_ptr<GeneralizedSolver> gs, shared_ptr<Obstacles> obs, co
 		node->v[2] = v(n * 3 + 2);
 		node->x = node->x + h * node->v;
 		if (node->EoL) {
+			//cout << node->v << endl;
 			vert->v[0] = v(mesh.nodes.size() * 3 + node->EoL_index * 2);
 			vert->v[1] = v(mesh.nodes.size() * 3 + node->EoL_index * 2 + 1);
 			//if (mesh.nodes[i]->verts[0]->u[0] != Xmin && mesh.nodes[i]->verts[0]->u[0] != Xmax) mesh.nodes[i]->verts[0]->u[0] = mesh.nodes[i]->verts[0]->u[0] + h * mesh.nodes[i]->verts[0]->v[0];
@@ -333,6 +387,14 @@ void Cloth::step(shared_ptr<GeneralizedSolver> gs, shared_ptr<Obstacles> obs, co
 	}
 
 	updateBuffers();
+}
+
+void Cloth::updateFix(double t)
+{
+	if (fsindex + 1 >= fs.size()) return;
+	if (t > fs[fsindex + 1]->when) {
+		fsindex++;
+	}
 }
 
 #ifdef EOLC_ONLINE
@@ -429,3 +491,73 @@ void Cloth::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Program> p) 
 	}
 }
 #endif // EOLC_ONLINE
+
+// Export
+int Cloth::getBrenderCount() const
+{
+	return 2;
+}
+
+vector<string> Cloth::getBrenderNames() const
+{
+	vector<string> names;
+	names.push_back("Cloth2D");
+	names.push_back("Cloth3D");
+	return names;
+}
+
+void Cloth::exportBrender(vector< shared_ptr< ofstream > > outfiles) const
+{
+	ofstream &outfile = *outfiles[0];
+
+	for (int i = 0; i < mesh.nodes.size(); i++) {
+		char vert[50];
+		sprintf(vert, "v %f %f %f\n", mesh.nodes[i]->verts[0]->u[0], mesh.nodes[i]->verts[0]->u[1], 0);
+		outfile << vert;
+	}
+	//texture coordinates
+	for (int i = 0; i < texBuf.size(); i = i + 2) {
+		char vtex[50];
+		sprintf(vtex, "vt %f %f\n", texBuf[i], texBuf[i + 1]);
+		outfile << vtex;
+	}
+	//normal vectors
+	for (int i = 0; i < norBuf.size(); i = i + 3) {
+		char norm[50];
+		sprintf(norm, "vn %f %f %f\n", 0.0, 0.0, 1.0);
+		outfile << norm;
+	}
+	//faces
+	for (int i = 0; i < eleBuf.size(); i = i + 3) {
+		char face[50];
+		sprintf(face, "f %i/%i/%i %i/%i/%i %i/%i/%i\n", eleBuf[i] + 1, eleBuf[i] + 1, eleBuf[i] + 1, eleBuf[i + 1] + 1, eleBuf[i + 1] + 1, eleBuf[i + 1] + 1, eleBuf[i + 2] + 1, eleBuf[i + 2] + 1, eleBuf[i + 2] + 1);
+		outfile << face;
+	}
+
+	ofstream &outfile2 = *outfiles[1];
+
+	////vertex positions
+	for (int i = 0; i < posBuf.size(); i = i + 3) {
+		char vert[50];
+		sprintf(vert, "v %f %f %f\n", posBuf[i], posBuf[i + 1], posBuf[i + 2]);
+		outfile2 << vert;
+	}
+	//texture coordinates
+	for (int i = 0; i < texBuf.size(); i = i + 2) {
+		char vtex[50];
+		sprintf(vtex, "vt %f %f\n", texBuf[i], texBuf[i + 1]);
+		outfile2 << vtex;
+	}
+	//normal vectors
+	for (int i = 0; i < norBuf.size(); i = i + 3) {
+		char norm[50];
+		sprintf(norm, "vn %f %f %f\n", norBuf[i], norBuf[i + 1], norBuf[i + 2]);
+		outfile2 << norm;
+	}
+	//faces
+	for (int i = 0; i < eleBuf.size(); i = i + 3) {
+		char face[50];
+		sprintf(face, "f %i/%i/%i %i/%i/%i %i/%i/%i\n", eleBuf[i] + 1, eleBuf[i] + 1, eleBuf[i] + 1, eleBuf[i + 1] + 1, eleBuf[i + 1] + 1, eleBuf[i + 1] + 1, eleBuf[i + 2] + 1, eleBuf[i + 2] + 1, eleBuf[i + 2] + 1);
+		outfile2 << face;
+	}
+}

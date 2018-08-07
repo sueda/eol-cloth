@@ -152,3 +152,19 @@ void mesh2m(const Mesh& mesh, const string &file_name, const bool &overwrite)
 	vvv << 1, 1, 1;
 	mat_to_file(faces2.colwise() += vvv, "faces", file_name, false);
 }
+
+void double_to_file(double d, const string &var_name, const string &file_name, const bool &overwrite)
+{
+	ofstream ofs;
+	if (overwrite) ofs.open(file_name, ofstream::out | ofstream::trunc);
+	else ofs.open(file_name, ofstream::out | ofstream::app);
+
+	ofs << setprecision(20);
+
+	ofs << var_name;
+	ofs << " = ";
+	ofs << d;
+	ofs << ";\n\n";
+
+	ofs.close();
+}

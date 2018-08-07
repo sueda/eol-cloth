@@ -6,6 +6,8 @@
 #include "external\ArcSim\referenceshape.hpp"
 
 #include "Cloth.h"
+#include "Constraints.h"
+#include "FixedList.h"
 #include "Obstacles.h"
 #include "Points.h"
 #include "Box.h"
@@ -92,6 +94,7 @@ void parse(Range range, const Json::Value &json, Vec2 range0, const string key) 
 
 void parse(Vector2i &v, const Json::Value &json) {
 	if (!json.isArray()) complain(json, "array");
+	if (json.size() != 2) complain(json, "array of size" + to_string(2));
 	for (int i = 0; i < v.size(); i++) {
 		v(i) = json[i].asInt();
 	}
@@ -99,6 +102,7 @@ void parse(Vector2i &v, const Json::Value &json) {
 
 void parse(Vector2d &v, const Json::Value &json) {
 	if (!json.isArray()) complain(json, "array");
+	if (json.size() != 2) complain(json, "array of size" + to_string(2));
 	for (int i = 0; i < v.size(); i++) {
 		v(i) = json[i].asDouble();
 	}
@@ -106,6 +110,15 @@ void parse(Vector2d &v, const Json::Value &json) {
 
 void parse(Vector3d &v, const Json::Value &json) {
 	if (!json.isArray()) complain(json, "array");
+	if (json.size() != 3) complain(json, "array of size" + to_string(3));
+	for (int i = 0; i < v.size(); i++) {
+		v(i) = json[i].asDouble();
+	}
+}
+
+void parse(VectorXd &v, const Json::Value &json) {
+	if (!json.isArray()) complain(json, "array");
+	if (v.size() != json.size()) complain(json, "array of size" + to_string(v.size()));
 	for (int i = 0; i < v.size(); i++) {
 		v(i) = json[i].asDouble();
 	}
@@ -198,6 +211,44 @@ void load_remeshset(Remeshing& remeshing, const Json::Value& json)
 	parse(remeshing.aspect_min, json["aspect_min"], -infinity);
 }
 
+void load_fixedset(vector<shared_ptr<FixedList> > &fsv, const Json::Value& json)
+{
+	VectorXd nothing(6);
+	nothing << -1.0, -1.0, -1.0, -1.0, -1.0, -1.0;
+	if (json.isMember("0")) {
+		auto fs = make_shared<FixedList>();
+		parse(fs->when, json["0"]["when"], 0.0);
+		parse(fs->c1, json["0"]["corner1"], nothing);
+		parse(fs->c2, json["0"]["corner2"], nothing);
+		parse(fs->c3, json["0"]["corner3"], nothing);
+		parse(fs->c4, json["0"]["corner4"], nothing);
+		cout << fs->c4 << endl;
+		fsv.push_back(fs);
+	}
+	else {
+		auto fs = make_shared<FixedList>();
+		parse(fs->when, json["when"], 0.0);
+		parse(fs->c1, json["corner1"], nothing);
+		parse(fs->c2, json["corner2"], nothing);
+		parse(fs->c3, json["corner3"], nothing);
+		parse(fs->c4, json["corner4"], nothing);
+		fsv.push_back(fs);
+		return;
+	}
+	int i = 1;
+	while(true) {
+		if (!json.isMember(to_string(i))) break;
+		auto fs = make_shared<FixedList>();
+		parse(fs->when, json[to_string(i)]["when"], 0.0);
+		parse(fs->c1, json[to_string(i)]["corner1"], nothing);
+		parse(fs->c2, json[to_string(i)]["corner2"], nothing);
+		parse(fs->c3, json[to_string(i)]["corner3"], nothing);
+		parse(fs->c4, json[to_string(i)]["corner4"], nothing);
+		fsv.push_back(fs);
+		i++;
+	}
+}
+
 // Individual object settings loaders
 
 void load_defclothset(shared_ptr<Cloth> cloth, const Json::Value& json)
@@ -223,9 +274,32 @@ void load_clothset(shared_ptr<Cloth> cloth, const Json::Value& json)
 		load_defclothset(cloth, json["init"]);
 	}
 
-	if (json.isMember("Material")) load_matset(cloth->material, json["Material"]);
+	if (json.isMember("Material")) {
+		load_matset(cloth->material, json["Material"]);
+	}
+	else {
+		load_matset(cloth->material, json);
+	}
 
-	if (json.isMember("Remeshing")) load_remeshset(cloth->remeshing, json["Remeshing"]);
+	if (json.isMember("Remeshing")) {
+		load_remeshset(cloth->remeshing, json["Remeshing"]);
+	}
+	else {
+		load_remeshset(cloth->remeshing, json);
+	}
+
+	if (json.isMember("Fixed")) {
+		load_fixedset(cloth->fs, json["Fixed"]);
+		// I don't like how I did this
+		Vector2i res;
+		parse(res, json["init"]["initial_cloth_res"], Vector2i(2, 2));
+		for (int f = 0; f < cloth->fs.size(); f++) {
+			cloth->fs[f]->c1i = 0;
+			cloth->fs[f]->c2i = res(0) * (res(1) - 1);
+			cloth->fs[f]->c3i = res(0) * res(1) - 1;
+			cloth->fs[f]->c4i = res(0) - 1;
+		}
+	}
 }
 
 void load_pointsset(shared_ptr<Points> p, const Json::Value& json)
@@ -279,7 +353,7 @@ void load_boxset(vector<shared_ptr<Box> > &boxes, shared_ptr<Shape> shape, const
 			cout << "	[scalex, scaley, scalez, x, y, z, agvx, angvy, angvz, vx, vy, vz]" << endl;
 			abort();
 		}
-		auto b = make_shared<Box>(shape);
+		auto b = make_shared<Box>(shape,"Box" + to_string(i));
 		b->dim = Vector3d(json[i][0].asDouble(), json[i][1].asDouble(), json[i][2].asDouble());
 		b->E1.block<3,1>(0,3) = Vector3d(json[i][3].asDouble(), json[i][4].asDouble(), json[i][5].asDouble());
 		b->E1inv = b->E1.inverse();
@@ -322,7 +396,9 @@ void load_simset(shared_ptr<Scene> scene, const string &JSON_FILE)
 
 	parse(scene->h, json["timestep"], 0.005);
 	parse(scene->grav, json["gravity"], Vector3d(0.0, 0.0, -9.8));
+	parse(scene->REMESHon, json["REMESH"], false);
 	parse(scene->EOLon, json["EOL"], false);
+	if (scene->EOLon) scene->REMESHon = true;
 
 	if (json.isMember("Cloth")) load_clothset(scene->cloth, json["Cloth"]);
 
@@ -340,6 +416,7 @@ void printSimSet(shared_ptr<Scene> scene)
 {
 	cout << "Simulation settings" << endl;
 	cout << "	Timestep: " << scene->h << endl;
+	cout << "	REMESH: " << printSimBool(scene->REMESHon) << endl;
 	cout << "	EOL: " << printSimBool(scene->EOLon) << endl;
 	cout << "	Cloth:" << endl;
 	cout << "		cloth_obj: " << "" << endl;
@@ -356,9 +433,10 @@ void printSimSet(shared_ptr<Scene> scene)
 	cout << "			size: [" << scene->cloth->remeshing.size_min << ", " << scene->cloth->remeshing.size_max << "]" << endl;
 	cout << "			aspect_min: " << scene->cloth->remeshing.aspect_min << endl;
 	cout << "	Obstacles:" << endl;
-	cout << "		points_file: " << "" << endl;
+	cout << "		threshold: " << scene->obs->cdthreshold << endl;
+	//cout << "		points_file: " << "" << endl;
 	cout << "		total_points: " << scene->obs->points->num_points << endl;
-	cout << "		box_file: " << "" << endl;
+	//cout << "		box_file: " << "" << endl;
 	cout << "		total_boxes" << scene->obs->num_boxes << endl;
 
 }

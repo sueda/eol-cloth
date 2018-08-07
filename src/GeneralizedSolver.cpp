@@ -71,9 +71,9 @@ bool mosekSolve(const SparseMatrix<double>& MDK, const VectorXd& b,
 #endif
 
 #ifdef EOLC_GUROBI
-bool gurobiSolve(const SparseMatrix<double>& MDK, const VectorXd& b,
-	const SparseMatrix<double>& Aeq, const VectorXd& beq,
-	const SparseMatrix<double>& Aineq, const VectorXd& bineq,
+bool gurobiSolve(SparseMatrix<double>& MDK, const VectorXd& b,
+	SparseMatrix<double>& Aeq, const VectorXd& beq,
+	SparseMatrix<double>& Aineq, const VectorXd& bineq,
 	VectorXd& v)
 {
 	GurobiSparse qp(b.size(), beq.size(), bineq.size());
@@ -84,7 +84,7 @@ bool gurobiSolve(const SparseMatrix<double>& MDK, const VectorXd& b,
 	SparseVector<double> Sbineq(bineq.sparseView());
 
 	MDK.makeCompressed();
-	SC.makeCompressed();
+	Sb.makeCompressed();
 	Aeq.makeCompressed();
 	Aineq.makeCompressed();
 
@@ -105,24 +105,25 @@ bool gurobiSolve(const SparseMatrix<double>& MDK, const VectorXd& b,
 #endif
 
 bool GeneralizedSolver::velocitySolve(const bool& fixedPoints, const bool& collisions,
-	const SparseMatrix<double>& MDK, const VectorXd& b,
-	const SparseMatrix<double>& Aeq, const VectorXd& beq,
-	const SparseMatrix<double>& Aineq, const VectorXd& bineq,
+	SparseMatrix<double>& MDK, const VectorXd& b,
+	SparseMatrix<double>& Aeq, const VectorXd& beq,
+	SparseMatrix<double>& Aineq, const VectorXd& bineq,
 	VectorXd& v)
 {
-	if (true) {
-		generateMatlab(MDK, b,
-			Aeq, beq,
-			Aineq, bineq,
-			v);
-	}
+	//if (true) {
+	//	generateMatlab(MDK, b,
+	//		Aeq, beq,
+	//		Aineq, bineq,
+	//		v);
+	//}
 
-	if (!collisions) {
+	if (!collisions && false) {
 		// Simplest case, a cloth with no fixed points and no collisions
 		if (!fixedPoints) {
 			ConjugateGradient<SparseMatrix<double>, Lower | Upper> cg;
 			cg.compute(MDK);
 			v = cg.solve(-b);
+			//cout << v << endl;
 			return true;
 		}
 		else {

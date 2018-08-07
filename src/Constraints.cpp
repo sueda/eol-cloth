@@ -19,6 +19,7 @@
 #include "Points.h"
 #include "Rigid.h"
 #include "Collisions.h"
+#include "FixedList.h"
 //#include "external\ArcSim\mesh.hpp"
 #include "external\ArcSim\util.hpp"
 
@@ -108,10 +109,18 @@ void Constraints::updateTable(const shared_ptr<Obstacles> obs)
 
 typedef Eigen::Triplet<double> T;
 
-void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double h)
+void addFixed(const VectorXd& c, vector<T>& Aeq_, vector< pair<int, double> >& beq_, const double& v, const int& ci, const int& i, int& eqsize)
+{
+	Aeq_.push_back(T(eqsize, ci, c(i)));
+	beq_.push_back(make_pair(eqsize, (1 - 0.01) * v + c(i + 3)));
+	eqsize++;
+}
+
+void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const shared_ptr<FixedList> fs, double h, const bool& online)
 {
 	updateTable(obs);
 
+	hasFixed = false;
 	hasCollisions = false;
 
 	vector<T> Aeq_;
@@ -160,9 +169,11 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 				Aineq_.push_back(T(ineqsize, n * 3, -nor(0)));
 				Aineq_.push_back(T(ineqsize, n * 3 + 1, -nor(1)));
 				Aineq_.push_back(T(ineqsize, n * 3 + 2, -nor(2)));
-				drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], nor(0)));
-				drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], nor(1)));
-				drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[2], nor(2)));
+				if (online) {
+					drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], nor(0)));
+					drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], nor(1)));
+					drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[2], nor(2)));
+				}
 				if (movement) {
 					bfill = nor.transpose() * xdot.segment<3>(0);
 					bineq_.push_back(make_pair(ineqsize, -bfill));
@@ -212,9 +223,11 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 				Aineq_.push_back(T(ineqsize, n * 3, -constraintTable(0,node->cdEdges[0])));
 				Aineq_.push_back(T(ineqsize, n * 3 + 1, -constraintTable(1, node->cdEdges[0])));
 				Aineq_.push_back(T(ineqsize, n * 3 + 2, -constraintTable(2, node->cdEdges[0])));
-				drawAineq.push_back(Vector3d(ineqsize, node->x[0], constraintTable(0, node->cdEdges[0])));
-				drawAineq.push_back(Vector3d(ineqsize, node->x[1], constraintTable(1, node->cdEdges[0])));
-				drawAineq.push_back(Vector3d(ineqsize, node->x[2], constraintTable(2, node->cdEdges[0])));
+				if (online) {
+					drawAineq.push_back(Vector3d(ineqsize, node->x[0], constraintTable(0, node->cdEdges[0])));
+					drawAineq.push_back(Vector3d(ineqsize, node->x[1], constraintTable(1, node->cdEdges[0])));
+					drawAineq.push_back(Vector3d(ineqsize, node->x[2], constraintTable(2, node->cdEdges[0])));
+				}
 				if (movement) {
 					Vector3d nor = constraintTable.block(0, node->cdEdges[0], 3, 1); // Only works if stored for some reason
 					bfill = nor.transpose() * xdot.segment<3>(0);
@@ -225,9 +238,11 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 				Aineq_.push_back(T(ineqsize, n * 3, -constraintTable(3, node->cdEdges[0])));
 				Aineq_.push_back(T(ineqsize, n * 3 + 1, -constraintTable(4, node->cdEdges[0])));
 				Aineq_.push_back(T(ineqsize, n * 3 + 2, -constraintTable(5, node->cdEdges[0])));
-				drawAineq.push_back(Vector3d(ineqsize, node->x[0], constraintTable(3, node->cdEdges[0])));
-				drawAineq.push_back(Vector3d(ineqsize, node->x[1], constraintTable(4, node->cdEdges[0])));
-				drawAineq.push_back(Vector3d(ineqsize, node->x[2], constraintTable(5, node->cdEdges[0])));
+				if (online) {
+					drawAineq.push_back(Vector3d(ineqsize, node->x[0], constraintTable(3, node->cdEdges[0])));
+					drawAineq.push_back(Vector3d(ineqsize, node->x[1], constraintTable(4, node->cdEdges[0])));
+					drawAineq.push_back(Vector3d(ineqsize, node->x[2], constraintTable(5, node->cdEdges[0])));
+				}
 				if (movement) {
 					Vector3d nor = constraintTable.block(3, node->cdEdges[0], 3, 1); // Only works if stored for some reason
 					bfill = nor.transpose() * xdot.segment<3>(0);
@@ -290,9 +305,11 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 			Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(0) * 3, -clsLAG[i]->nor1(0)));
 			Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(0) * 3 + 1, -clsLAG[i]->nor1(1)));
 			Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(0) * 3 + 2, -clsLAG[i]->nor1(2)));
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			if (online) {
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			}
 			ineqsize++;
 		}
 		else if (clsLAG[i]->count1 == 2 && clsLAG[i]->count2 == 2) {
@@ -303,9 +320,11 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 1, -clsLAG[i]->nor2(1) * clsLAG[i]->weights2(j)));
 				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 2, -clsLAG[i]->nor2(2) * clsLAG[i]->weights2(j)));
 			}
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			if (online) {
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			}
 			ineqsize++;
 		}
 		else if (clsLAG[i]->count1 == 1 && clsLAG[i]->count2 == 3) {
@@ -317,14 +336,42 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, double
 				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 1, -clsLAG[i]->nor2(1) * clsLAG[i]->weights2(j)));
 				Aineq_.push_back(T(ineqsize, clsLAG[i]->verts2(j) * 3 + 2, -clsLAG[i]->nor2(2) * clsLAG[i]->weights2(j)));
 			}
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
-			drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			if (online) {
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(0), clsLAG[i]->nor1(0)));
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(1), clsLAG[i]->nor1(1)));
+				drawAineq.push_back(Vector3d(ineqsize, clsLAG[i]->pos2(2), clsLAG[i]->nor1(2)));
+			}
 			ineqsize++;
 		}
 	}
 
 	if (ineqsize > 0) hasCollisions = true;
+
+	double expoFill = 0.01;
+	if (fs->c1(0) != -1) {
+		hasFixed = true;
+		if (fs->c1(0) == 1.0) addFixed(fs->c1, Aeq_, beq_, mesh.nodes[fs->c1i]->v[0], fs->c1i * 3, 0, eqsize);
+		if (fs->c1(1) == 1.0) addFixed(fs->c1, Aeq_, beq_, mesh.nodes[fs->c1i]->v[1], fs->c1i * 3 + 1, 1, eqsize);
+		if (fs->c1(2) == 1.0) addFixed(fs->c1, Aeq_, beq_, mesh.nodes[fs->c1i]->v[2], fs->c1i * 3 + 2, 2, eqsize);
+	}
+	if (fs->c2(0) != -1) {
+		hasFixed = true;
+		if (fs->c2(0) == 1.0) addFixed(fs->c2, Aeq_, beq_, mesh.nodes[fs->c2i]->v[0], fs->c2i * 3, 0, eqsize);
+		if (fs->c2(1) == 1.0) addFixed(fs->c2, Aeq_, beq_, mesh.nodes[fs->c2i]->v[1], fs->c2i * 3 + 1, 1, eqsize);
+		if (fs->c2(2) == 1.0) addFixed(fs->c2, Aeq_, beq_, mesh.nodes[fs->c2i]->v[2], fs->c2i * 3 + 2, 2, eqsize);
+	}
+	if (fs->c3(0) != -1) {
+		hasFixed = true;
+		if (fs->c3(0) == 1.0) addFixed(fs->c3, Aeq_, beq_, mesh.nodes[fs->c3i]->v[0], fs->c3i * 3, 0, eqsize);
+		if (fs->c3(1) == 1.0) addFixed(fs->c3, Aeq_, beq_, mesh.nodes[fs->c3i]->v[1], fs->c3i * 3 + 1, 1, eqsize);
+		if (fs->c3(2) == 1.0) addFixed(fs->c3, Aeq_, beq_, mesh.nodes[fs->c3i]->v[2], fs->c3i * 3 + 2, 2, eqsize);
+	}
+	if (fs->c4(0) != -1) {
+		hasFixed = true;
+		if (fs->c4(0) == 1.0) addFixed(fs->c4, Aeq_, beq_, mesh.nodes[fs->c4i]->v[0], fs->c4i * 3, 0, eqsize);
+		if (fs->c4(1) == 1.0) addFixed(fs->c4, Aeq_, beq_, mesh.nodes[fs->c4i]->v[1], fs->c4i * 3 + 1, 1, eqsize);
+		if (fs->c4(2) == 1.0) addFixed(fs->c4, Aeq_, beq_, mesh.nodes[fs->c4i]->v[2], fs->c4i * 3 + 2, 2, eqsize);
+	}
 
 	Aeq.resize(eqsize, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
 	Aineq.resize(ineqsize, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);

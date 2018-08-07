@@ -31,6 +31,13 @@ void Obstacles::step(double h)
 	}
 }
 
+void Obstacles::addExport(BrenderManager *brender)
+{
+	for (int b = 0; b < num_boxes; b++) {
+		brender->add(boxes[b]);
+	}
+}
+
 #ifdef EOLC_ONLINE
 void Obstacles::init()
 {
@@ -49,9 +56,9 @@ void Obstacles::draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Prog
 
 void Obstacles::drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const
 {
-	for (int i = 0; i < boxes.size(); i++) {
-		//boxes[i]->drawSimple(MV, p);
-	}
+	//for (int i = 0; i < boxes.size(); i++) {
+	//	//boxes[i]->drawSimple(MV, p);
+	//}
 	points->drawSimple(MV, p);
 }
 #endif // EOLC_ONLINE

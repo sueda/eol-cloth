@@ -12,7 +12,10 @@
 // ArcSim
 #include "external/ArcSim//mesh.hpp"
 
+#include "Brenderable.h"
+
 class Obstacles;
+class FixedList;
 class Constraints;
 class Forces;
 class GeneralizedSolver;
@@ -37,7 +40,7 @@ extern struct Remeshing {
 	double aspect_min; // aspect ratio control
 };
 
-class Cloth
+class Cloth : public Brenderable
 {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -47,6 +50,8 @@ public:
 	Material material;
 
 	Mesh last_mesh;
+
+	std::vector<std::shared_ptr<FixedList> > fs;
 
 	std::shared_ptr<Constraints> consts;
 	std::shared_ptr<Forces> myForces;
@@ -65,8 +70,9 @@ public:
 
 	void updatePreviousMesh();
 	void velocityTransfer();
-	void step(std::shared_ptr<GeneralizedSolver> gs, std::shared_ptr<Obstacles> obs, const Eigen::Vector3d& grav, double h);
+	void step(std::shared_ptr<GeneralizedSolver> gs, std::shared_ptr<Obstacles> obs, const Eigen::Vector3d& grav, double h, const bool& REMESHon, const bool& online);
 	void solve(std::shared_ptr<GeneralizedSolver> gs, double h);
+	void updateFix(double t);
 
 #ifdef EOLC_ONLINE
 	void init();
@@ -74,8 +80,14 @@ public:
 	void drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
 #endif // EOLC_ONLINE
 
-	
+	// Exporting
+	int getBrenderCount() const;
+	std::vector<std::string> getBrenderNames() const;
+	void exportBrender(std::vector< std::shared_ptr< std::ofstream > > outfiles) const;
+
 private:
+
+	int fsindex;
 	
 	Eigen::VectorXd v_old;
 	Eigen::VectorXd v;
@@ -92,7 +104,6 @@ private:
 	unsigned norBufID;
 	unsigned texBufID;
 #endif // EOLC_ONLINE
-
 
 };
 

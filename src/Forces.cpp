@@ -60,104 +60,190 @@ void nodeBasedF(const Mesh& mesh, VectorXd& f, vector<T>& M_, const Vector3d& gr
 		Node* node = mesh.nodes[n];
 		Vert* vert = node->verts[0];
 
+		int nindex = node->index * 3;
+
 		double mass = 0.0;
 		for (int f = 0; f < vert->adjf.size(); f++) {
 			mass += (vert->adjf[f]->m * (1.0 / 3.0));
 		}
 
 		Vector3d mg = mass * grav;
-		f.segment<3>(node->index) += mg;
+		f.segment<3>(nindex) += mg;
 
 		Matrix3d Mxx = Matrix3d::Identity() * mass;
 		for (int j = 0; j < 3; j++) {
-			M_.push_back(T(node->index + j, node->index + j, Mxx(j, j))); // We know it's a diagonal matrix
+			M_.push_back(T(nindex + j, nindex + j, Mxx(j, j))); // We know it's a diagonal matrix
 		}
 
 		if (node->EoL) {
+			int nindexX = mesh.nodes.size() * 3 + node->EoL_index * 2;
+
 			MatrixXd F = deform_grad_v(vert);
 
 			Vector2d mFg = -mass * F.transpose() * grav;
-			f.segment<2>(node->EoL_index) += mFg;
+			f.segment<2>(nindexX) += mFg;
 
 			Matrix2d MXX = -mass * F.transpose() * F;
 			for (int j = 0; j < 2; j++) {
 				for (int k = 0; k < 2; k++) {
-					M_.push_back(T(node->EoL_index + j, node->EoL_index + k, MXX(j, k)));
+					M_.push_back(T(nindexX + j, nindexX + k, MXX(j, k)));
 				}
 			}
 
 			MatrixXd MXx = -mass * F.transpose();
 			for (int j = 0; j < 2; j++) {
 				for (int k = 0; k < 3; k++) {
-					M_.push_back(T(node->EoL_index + j, node->index + k, MXx(j, k)));
-					M_.push_back(T(node->index + k, node->EoL_index + j, MXx(j, k)));
+					M_.push_back(T(nindexX + j, nindex + k, MXx(j, k)));
+					M_.push_back(T(nindex + k, nindexX + j, MXx(j, k)));
 				}
 			}
 		}
 	}
 }
 
-void fillxMI(vector<T>& MDK_, const Matrix3d& Kxx, int index, const Vector2d& damping, double h)
+void fillxMI(vector<T>& MDK_, vector<T>& M_, const Matrix3d& Kxx, const Matrix3d& Mxx, int index, const Vector2d& damping, double h)
 {
-	Matrix3d MDKxx = damping(1) * h * h * Kxx;
+	Matrix3d MDKxx = Mxx + damping(1) * h * h * Kxx;
 	for (int j = 0; j < 3; j++) {
 		for (int k = 0; k < 3; k++) {
+			M_.push_back(T(index + j, index + k, Mxx(j, k)));
 			MDK_.push_back(T(index + j, index + k, MDKxx(j, k)));
 		}
 	}
 }
 
-void fillxxMI(vector<T>& MDK_, const Matrix3d& Kxx, int i0, int i1, const Vector2d& damping, double h)
+void fillxxMI(vector<T>& MDK_, vector<T>& M_, const Matrix3d& Kxx, const Matrix3d& Mxx, int i0, int i1, const Vector2d& damping, double h)
 {
-	Matrix3d MDKxx = damping(1) * h * h * Kxx;
+	Matrix3d MDKxx = Mxx + damping(1) * h * h * Kxx;
 	for (int j = 0; j < 3; j++) {
 		for (int k = 0; k < 3; k++) {
+			M_.push_back(T(i0 + j, i1 + k, Mxx(j, k)));
+			M_.push_back(T(i1 + k, i0 + j, Mxx(j, k)));
 			MDK_.push_back(T(i0 + j, i1 + k, MDKxx(j, k)));
 			MDK_.push_back(T(i1 + k, i0 + j, MDKxx(j, k)));
 		}
 	}
 }
 
-void fillXMI(vector<T>& MDK_, const Matrix2d& KXX, int index, const Vector2d& damping, double h)
+void fillXMI(vector<T>& MDK_, vector<T>& M_, const Matrix2d& KXX, const Matrix2d& Mxx, int index, const Vector2d& damping, double h)
 {
-	Matrix2d MDKXX = damping(1) * h * h * KXX;
+	Matrix2d MDKXX = Mxx + damping(1) * h * h * KXX;
 	for (int j = 0; j < 2; j++) {
 		for (int k = 0; k < 2; k++) {
+			M_.push_back(T(index + j, index + k, Mxx(j, k)));
 			MDK_.push_back(T(index + j, index + k, MDKXX(j, k)));
 		}
 	}
 }
 
-void fillXXMI(vector<T>& MDK_, const Matrix2d& KXX, int i0, int i1, const Vector2d& damping, double h)
+void fillXXMI(vector<T>& MDK_, vector<T>& M_, const Matrix2d& KXX, const Matrix2d& Mxx, int i0, int i1, const Vector2d& damping, double h)
 {
-	Matrix2d MDKXX = damping(1) * h * h * KXX;
+	Matrix2d MDKXX = Mxx + damping(1) * h * h * KXX;
 	for (int j = 0; j < 2; j++) {
 		for (int k = 0; k < 2; k++) {
+			M_.push_back(T(i0 + j, i1 + k, Mxx(j, k)));
+			M_.push_back(T(i1 + k, i0 + j, Mxx(j, k)));
 			MDK_.push_back(T(i0 + j, i1 + k, MDKXX(j, k)));
 			MDK_.push_back(T(i1 + k, i0 + j, MDKXX(j, k)));
 		}
 	}
 }
 
-void fillXxMI(vector<T>& MDK_, MatrixXd& KXx, int i0, int i1, Vector2d& damping, double h)
+void fillXxMI(vector<T>& MDK_, vector<T>& M_, MatrixXd& KXx, const MatrixXd& Mxx, int i0, int i1, Vector2d& damping, double h)
 {
-	MatrixXd MDKXx = damping(1) * h * h * KXx;
+	MatrixXd MDKXx = Mxx + damping(1) * h * h * KXx;
 	for (int j = 0; j < 2; j++) {
 		for (int k = 0; k < 3; k++) {
+			M_.push_back(T(i0 + j, i1 + k, Mxx(j, k)));
+			M_.push_back(T(i1 + k, i0 + j, Mxx(j, k)));
 			MDK_.push_back(T(i0 + j, i1 + k, MDKXx(j, k)));
 			MDK_.push_back(T(i1 + k, i0 + j, MDKXx(j, k)));
 		}
 	}
 }
 
-void fillxXMI(vector<T>& MDK_, MatrixXd& KxX, int i0, int i1, Vector2d& damping, double h)
+void fillxXMI(vector<T>& MDK_, vector<T>& M_, MatrixXd& KxX, const MatrixXd& Mxx, int i0, int i1, Vector2d& damping, double h)
 {
-	MatrixXd MDKxX = damping(1) * h * h * KxX;
+	MatrixXd MDKxX = Mxx + damping(1) * h * h * KxX;
 	for (int j = 0; j < 3; j++) {
 		for (int k = 0; k < 2; k++) {
+			M_.push_back(T(i0 + j, i1 + k, Mxx(j, k)));
+			M_.push_back(T(i1 + k, i0 + j, Mxx(j, k)));
 			MDK_.push_back(T(i0 + j, i1 + k, MDKxX(j, k)));
 			MDK_.push_back(T(i1 + k, i0 + j, MDKxX(j, k)));
 		}
+	}
+}
+
+void fillEOLInertia(const Face* face, VectorXd& fi, MatrixXd& Mi)
+{
+	MatrixXd Fa, Fb, Fc;
+	bool EOLA = face->v[0]->node->EoL; bool EOLB = face->v[1]->node->EoL; bool EOLC = face->v[2]->node->EoL;
+
+	if (EOLA) Fa = deform_grad_v(face->v[0]);
+	if (EOLB) Fb = deform_grad_v(face->v[1]);
+	if (EOLC) Fc = deform_grad_v(face->v[2]);
+
+	Vector3d fia = fi.segment<3>(0); Vector3d fib = fi.segment<3>(3); Vector3d fic = fi.segment<3>(6);
+
+	Matrix3d Kiaa = Mi.block<3, 3>(0, 0); Matrix3d Kiab = Mi.block<3, 3>(0, 3); Matrix3d Kiac = Mi.block<3, 3>(0, 6);
+	Matrix3d Kiba = Mi.block<3, 3>(3, 0); Matrix3d Kibb = Mi.block<3, 3>(3, 3); Matrix3d Kibc = Mi.block<3, 3>(3, 6);
+	Matrix3d Kica = Mi.block<3, 3>(6, 0); Matrix3d Kicb = Mi.block<3, 3>(6, 3); Matrix3d Kicc = Mi.block<3, 3>(6, 6);
+
+	int ja = 0; int jA = 3; int jb = 5; int jB = 8; int jc = 10; int jC = 13;
+
+	fi.segment<3>(ja) = fia; fi.segment<3>(jb) = fib; fi.segment<3>(jc) = fic;
+
+	Mi.block<3, 3>(ja, ja) = Kiaa; Mi.block<3, 3>(ja, jb) = Kiab; Mi.block<3, 3>(ja, jc) = Kiac;
+	/*Mi.block<3, 3>(jb, ja) = Kiba;*/ Mi.block<3, 3>(jb, jb) = Kibb; Mi.block<3, 3>(jb, jc) = Kibc;
+	/*Mi.block<3, 3>(jc, ja) = Kica; Mi.block<3, 3>(jc, jb) = Kicb;*/ Mi.block<3, 3>(jc, jc) = Kicc;
+
+	if (EOLA) {
+		fi.segment<2>(jA) = -Fa.transpose() * fia;
+		Mi.block<2, 2>(jA, jA) = Fa.transpose() * Kiaa * Fa;
+	}
+	if (EOLB) {
+		fi.segment<2>(jB) = -Fb.transpose() * fib;
+		Mi.block<2, 2>(jB, jB) = Fb.transpose() * Kibb * Fb;
+	}
+	if (EOLC) {
+		fi.segment<2>(jC) = -Fc.transpose() * fic;
+		Mi.block<2, 2>(jC, jC) = Fc.transpose() * Kicc * Fc;
+	}
+
+	if (EOLA && EOLB) {
+		Mi.block<2, 2>(jA, jB) = Fa.transpose() * Kiab * Fb;
+	}
+	if (EOLA && EOLC) {
+		Mi.block<2, 2>(jA, jC) = Fa.transpose() * Kiac * Fc;
+	}
+	if (EOLB && EOLC) {
+		Mi.block<2, 2>(jB, jC) = Fb.transpose() * Kibc * Fc;
+	}
+
+	if (EOLA) {
+		Mi.block<2, 3>(jA, ja) = -Fa.transpose() * Kiaa;
+		Mi.block<2, 3>(jA, jb) = -Fa.transpose() * Kiab;
+		Mi.block<2, 3>(jA, jc) = -Fa.transpose() * Kiac;
+
+		Mi.block<3, 2>(ja, jA) = -Kiaa * Fa;
+	}
+	if (EOLB) {
+		//Mi.block<2, 3>(jB, ja) = -Fb.transpose() * Kiba;
+		Mi.block<2, 3>(jB, jb) = -Fb.transpose() * Kibb;
+		Mi.block<2, 3>(jB, jc) = -Fb.transpose() * Kibc;
+
+		Mi.block<3, 2>(ja, jB) = -Kiab * Fb;
+		Mi.block<3, 2>(jb, jB) = -Kibb * Fb;
+	}
+	if (EOLC) {
+		//Mi.block<2, 3>(jC, ja) = -Fc.transpose() * Kica;
+		//Mi.block<2, 3>(jC, jb) = -Fc.transpose() * Kicb;
+		Mi.block<2, 3>(jC, jc) = -Fc.transpose() * Kicc;
+
+		Mi.block<3, 2>(ja, jC) = -Kiac * Fc;
+		Mi.block<3, 2>(jb, jC) = -Kibc * Fc;
+		Mi.block<3, 2>(jc, jC) = -Kicc * Fc;
 	}
 }
 
@@ -233,7 +319,7 @@ void fillEOLMembrane(const Face* face, VectorXd& fm, MatrixXd& Km)
 	}
 }
 
-void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, double h)
+void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, vector<T>& M_, double h)
 {
 	for (int i = 0; i < mesh.faces.size(); i++) {
 		Face* face = mesh.faces[i];
@@ -284,85 +370,93 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, double h)
 		int cindexX = mesh.nodes.size() * 3 + face->v[2]->node->EoL_index * 2;
 
 		double fm[9], Km[81];
+		double fi[9], Mi[81];
+		double gg[3] = {0.0, 0.0, -9.81};
 
-		VectorXd fme(15);
-		MatrixXd Kme(15, 15);
+		VectorXd fme(15), fie(15);
+		MatrixXd Kme(15, 15), Mie(15, 15);
 
 		ComputeMembrane(xa, xb, xc, Xa, Xb, Xc, mat->e, mat->nu, PP, QQ, Wm, fm, Km);
+		//ComputeInertiaEOL(xa, xb, xc, Xa, Xb, Xc, g, material.density, Wi, fi, Mi);
+		ComputeInertial(xa, xb, xc, Xa, Xb, Xc, gg, mat->density, Wi, fi, Mi);
 
 		fme.segment<9>(0) = Map<VectorXd>(fm, 9);
 		Kme.block<9, 9>(0, 0) = Map<MatrixXd>(Km, 9, 9);
+		fie.segment<9>(0) = Map<VectorXd>(fi, 9);
+		Mie.block<9, 9>(0, 0) = Map<MatrixXd>(Mi, 9, 9);
 
 		Vector2d damping(mat->dampingA, mat->dampingB);
 
 		if (face->v[0]->node->EoL || face->v[1]->node->EoL || face->v[2]->node->EoL) {
 
+			fillEOLInertia(face, fie, Mie);
+
 			fillEOLMembrane(face, fme, Kme);
 
-			f.segment<3>(aindex) += fme.segment<3>(0);
-			if (face->v[0]->node->EoL) f.segment<2>(aindexX) += fme.segment<2>(3);
+			f.segment<3>(aindex) += (fme.segment<3>(0) + fie.segment<3>(0));
+			if (face->v[0]->node->EoL) f.segment<2>(aindexX) += (fme.segment<2>(3) + fie.segment<2>(3));
 
-			f.segment<3>(bindex) += fme.segment<3>(5);
-			if (face->v[1]->node->EoL)f.segment<2>(bindexX) += fme.segment<2>(8);
+			f.segment<3>(bindex) += (fme.segment<3>(5) + fie.segment<3>(5));
+			if (face->v[1]->node->EoL)f.segment<2>(bindexX) += (fme.segment<2>(8) + fie.segment<2>(8));
 
-			f.segment<3>(cindex) += fme.segment<3>(10);
-			if (face->v[2]->node->EoL) f.segment<2>(cindexX) += fme.segment<2>(13);
+			f.segment<3>(cindex) += (fme.segment<3>(10) + fie.segment<3>(10));
+			if (face->v[2]->node->EoL) f.segment<2>(cindexX) += (fme.segment<2>(13) + fie.segment<2>(13));
 
 			// Diagonal x
-			Matrix3d Kxx;
-			Kxx = Kme.block<3, 3>(0, 0);
-			fillxMI(MDK_, Kxx, aindex, damping, h);
-			Kxx = Kme.block<3, 3>(5, 5);
-			fillxMI(MDK_, Kxx, bindex, damping, h);
-			Kxx = Kme.block<3, 3>(10, 10);
-			fillxMI(MDK_, Kxx, cindex, damping, h);
+			Matrix3d Mxx, Kxx;
+			Kxx = Kme.block<3, 3>(0, 0); Mxx = Mie.block<3, 3>(0, 0);
+			fillxMI(MDK_, M_, Kxx, Mxx, aindex, damping, h);
+			Kxx = Kme.block<3, 3>(5, 5); Mxx = Mie.block<3, 3>(5, 5);
+			fillxMI(MDK_, M_, Kxx, Mxx, bindex, damping, h);
+			Kxx = Kme.block<3, 3>(10, 10); Mxx = Mie.block<3, 3>(10, 10);
+			fillxMI(MDK_, M_, Kxx, Mxx, cindex, damping, h);
 
 			// Off-Diagonal x
-			Kxx = Kme.block<3, 3>(0, 5);
-			fillxxMI(MDK_, Kxx, aindex, bindex, damping, h);
-			Kxx = Kme.block<3, 3>(0, 10);
-			fillxxMI(MDK_, Kxx, aindex, cindex, damping, h);
-			Kxx = Kme.block<3, 3>(5, 10);
-			fillxxMI(MDK_, Kxx, bindex, cindex, damping, h);
+			Kxx = Kme.block<3, 3>(0, 5); Mxx = Mie.block<3, 3>(0, 5);
+			fillxxMI(MDK_, M_, Kxx, Mxx, aindex, bindex, damping, h);
+			Kxx = Kme.block<3, 3>(0, 10); Mxx = Mie.block<3, 3>(0, 10);
+			fillxxMI(MDK_, M_, Kxx, Mxx, aindex, cindex, damping, h);
+			Kxx = Kme.block<3, 3>(5, 10); Mxx = Mie.block<3, 3>(5, 10);
+			fillxxMI(MDK_, M_, Kxx, Mxx, bindex, cindex, damping, h);
 
 			// If has EOL componenent, Diagonal X
 			Matrix2d MXX, KXX;
 			if (face->v[0]->node->EoL) {
-				KXX = Kme.block<2, 2>(3, 3);
-				fillXMI(MDK_, KXX, aindexX, damping, h);
+				KXX = Kme.block<2, 2>(3, 3); MXX = Mie.block<2, 2>(3, 3);
+				fillXMI(MDK_, M_, KXX, MXX, aindexX, damping, h);
 			}
 			if (face->v[1]->node->EoL) {
-				KXX = Kme.block<2, 2>(8, 8);
-				fillXMI(MDK_, KXX, bindexX, damping, h);
+				KXX = Kme.block<2, 2>(8, 8); MXX = Mie.block<2, 2>(8, 8);
+				fillXMI(MDK_, M_, KXX, MXX, bindexX, damping, h);
 			}
 			if (face->v[2]->node->EoL) {
-				KXX = Kme.block<2, 2>(13, 13);
-				fillXMI(MDK_, KXX, cindexX, damping, h);
+				KXX = Kme.block<2, 2>(13, 13); MXX = Mie.block<2, 2>(13, 13);
+				fillXMI(MDK_, M_, KXX, MXX, cindexX, damping, h);
 			}
 
 			// If has EOL componenent, Off-Diagonal X
 			if (face->v[0]->node->EoL && face->v[1]->node->EoL) {
-				KXX = Kme.block<2, 2>(3, 8);
-				fillXXMI(MDK_, KXX, aindexX, bindexX, damping, h);
+				KXX = Kme.block<2, 2>(3, 8); MXX = Mie.block<2, 2>(3, 8);
+				fillXXMI(MDK_, M_, KXX, MXX, aindexX, bindexX, damping, h);
 			}
 			if (face->v[0]->node->EoL && face->v[2]->node->EoL) {
-				KXX = Kme.block<2, 2>(3, 13);
-				fillXXMI(MDK_, KXX, aindexX, cindexX, damping, h);
+				KXX = Kme.block<2, 2>(3, 13); MXX = Mie.block<2, 2>(3, 13);
+				fillXXMI(MDK_, M_, KXX, MXX, aindexX, cindexX, damping, h);
 			}
 			if (face->v[1]->node->EoL && face->v[2]->node->EoL) {
-				KXX = Kme.block<2, 2>(8, 13);
-				fillXXMI(MDK_, KXX, bindexX, cindexX, damping, h);
+				KXX = Kme.block<2, 2>(8, 13); MXX = Mie.block<2, 2>(8, 13);
+				fillXXMI(MDK_, M_, KXX, MXX, bindexX, cindexX, damping, h);
 			}
 
 			// X-x values
-			MatrixXd KXx, KxX;
+			MatrixXd KXx, KxX, MXx, MxX;
 			if (face->v[0]->node->EoL) {
-				KXx = Kme.block<2, 3>(3, 0);
-				fillXxMI(MDK_, KXx, aindexX, aindex, damping, h);
-				KXx = Kme.block<2, 3>(3, 5);
-				fillXxMI(MDK_, KXx, aindexX, bindex, damping, h);
-				KXx = Kme.block<2, 3>(3, 10);
-				fillXxMI(MDK_, KXx, aindexX, cindex, damping, h);
+				KXx = Kme.block<2, 3>(3, 0); MXx = Mie.block<2, 3>(3, 2);
+				fillXxMI(MDK_, M_, KXx, MXx, aindexX, aindex, damping, h);
+				KXx = Kme.block<2, 3>(3, 5); MXx = Mie.block<2, 3>(3, 5);
+				fillXxMI(MDK_, M_, KXx, MXx, aindexX, bindex, damping, h);
+				KXx = Kme.block<2, 3>(3, 10); MXx = Mie.block<2, 3>(3, 10);
+				fillXxMI(MDK_, M_, KXx, MXx, aindexX, cindex, damping, h);
 
 				//KxX = Kme.block<3, 2>(0, 3);
 				//fillxXMI(MDK_, KxX, aindex, aindexX, damping, h);
@@ -370,48 +464,48 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, double h)
 			if (face->v[1]->node->EoL) {
 				//KXx = Kme.block<2, 3>(8, 0);
 				//fillXxMI(MDK_, KXx, bindexX, aindex, damping, h);
-				KXx = Kme.block<2, 3>(8, 5);
-				fillXxMI(MDK_, KXx, bindexX, bindex, damping, h);
-				KXx = Kme.block<2, 3>(8, 10);
-				fillXxMI(MDK_, KXx, bindexX, cindex, damping, h);
+				KXx = Kme.block<2, 3>(8, 5); MXx = Mie.block<2, 3>(8, 5);
+				fillXxMI(MDK_, M_, KXx, MXx, bindexX, bindex, damping, h);
+				KXx = Kme.block<2, 3>(8, 10); MXx = Mie.block<2, 3>(8, 10);
+				fillXxMI(MDK_, M_, KXx, MXx, bindexX, cindex, damping, h);
 
-				KxX = Kme.block<3, 2>(0, 8);
-				fillxXMI(MDK_, KxX, aindex, bindexX, damping, h);
+				KxX = Kme.block<3, 2>(0, 8); MxX = Mie.block<3, 2>(0, 8);
+				fillxXMI(MDK_, M_, KxX, MxX, aindex, bindexX, damping, h);
 			}
 			if (face->v[2]->node->EoL) {
 				//KXx = Kme.block<2, 3>(13, 0);
 				//fillXxMI(MDK_, KXx, cindexX, aindex, damping, h);
 				//KXx = Kme.block<2, 3>(13, 5);
 				//fillXxMI(MDK_, KXx, cindexX, bindex, damping, h);
-				KXx = Kme.block<2, 3>(13, 10);
-				fillXxMI(MDK_, KXx, cindexX, cindex, damping, h);
+				KXx = Kme.block<2, 3>(13, 10); MXx = Mie.block<2, 3>(13, 10);
+				fillXxMI(MDK_, M_, KXx, MXx, cindexX, cindex, damping, h);
 
-				KxX = Kme.block<3, 2>(0, 13);
-				fillxXMI(MDK_, KxX, aindex, cindexX, damping, h);
-				KxX = Kme.block<3, 2>(5, 13);
-				fillxXMI(MDK_, KxX, bindex, cindexX, damping, h);
+				KxX = Kme.block<3, 2>(0, 13); MxX = Mie.block<3, 2>(0, 13);
+				fillxXMI(MDK_, M_, KxX, MxX, aindex, cindexX, damping, h);
+				KxX = Kme.block<3, 2>(5, 13); MxX = Mie.block<3, 2>(5, 13);
+				fillxXMI(MDK_, M_, KxX, MxX, bindex, cindexX, damping, h);
 			}
 		}
 		else {
 
-			f.segment<3>(aindex) += fme.segment<3>(0);
-			f.segment<3>(bindex) += fme.segment<3>(3);
-			f.segment<3>(cindex) += fme.segment<3>(6);
+			f.segment<3>(aindex) += fme.segment<3>(0) + fie.segment<3>(0);
+			f.segment<3>(bindex) += fme.segment<3>(3) + fie.segment<3>(3);
+			f.segment<3>(cindex) += fme.segment<3>(6) + fie.segment<3>(6);
 
 			Matrix3d Mxx, Kxx;
-			Kxx = Kme.block<3, 3>(0, 0);
-			fillxMI(MDK_, Kxx, aindex, damping, h);
-			Kxx = Kme.block<3, 3>(3, 3);
-			fillxMI(MDK_, Kxx, bindex, damping, h);
-			Kxx = Kme.block<3, 3>(6, 6);
-			fillxMI(MDK_, Kxx, cindex, damping, h);
+			Kxx = Kme.block<3, 3>(0, 0); Mxx = Mie.block<3, 3>(0, 0);
+			fillxMI(MDK_, M_, Kxx, Mxx, aindex, damping, h);
+			Kxx = Kme.block<3, 3>(3, 3); Mxx = Mie.block<3, 3>(3, 3);
+			fillxMI(MDK_, M_, Kxx, Mxx, bindex, damping, h);
+			Kxx = Kme.block<3, 3>(6, 6); Mxx = Mie.block<3, 3>(6, 6);
+			fillxMI(MDK_, M_, Kxx, Mxx, cindex, damping, h);
 
-			Kxx = Kme.block<3, 3>(0, 3);
-			fillxxMI(MDK_, Kxx, aindex, bindex, damping, h);
-			Kxx = Kme.block<3, 3>(0, 6);
-			fillxxMI(MDK_, Kxx, aindex, cindex, damping, h);
-			Kxx = Kme.block<3, 3>(3, 6);
-			fillxxMI(MDK_, Kxx, bindex, cindex, damping, h);
+			Kxx = Kme.block<3, 3>(0, 3); Mxx = Mie.block<3, 3>(0, 3);
+			fillxxMI(MDK_, M_, Kxx, Mxx, aindex, bindex, damping, h);
+			Kxx = Kme.block<3, 3>(0, 6); Mxx = Mie.block<3, 3>(0, 6);
+			fillxxMI(MDK_, M_, Kxx, Mxx, aindex, cindex, damping, h);
+			Kxx = Kme.block<3, 3>(3, 6); Mxx = Mie.block<3, 3>(3, 6);
+			fillxxMI(MDK_, M_, Kxx, Mxx, bindex, cindex, damping, h);
 		}
 	}
 }
@@ -460,6 +554,16 @@ void fillXxB(vector<T>& MDK_, const MatrixXd& KXx, int i0, int i1)
 		for (int k = 0; k < 3; k++) {
 			MDK_.push_back(T(i0 + j, i1 + k, KXx(j, k)));
 			MDK_.push_back(T(i1 + k, i0 + j, KXx(j, k)));
+		}
+	}
+}
+
+void fillxXB(vector<T>& MDK_, const MatrixXd& KxX, int i0, int i1)
+{
+	for (int j = 0; j < 3; j++) {
+		for (int k = 0; k < 2; k++) {
+			MDK_.push_back(T(i0 + j, i1 + k, KxX(j, k)));
+			MDK_.push_back(T(i1 + k, i0 + j, KxX(j, k)));
 		}
 	}
 }
@@ -533,22 +637,31 @@ void fillEOLBending(const Vert* v0, const Vert* v1, const Vert* v2, const Vert* 
 		Kb.block<2, 3>(jA, jd) = -Fa.transpose() * Kbad;
 	}
 	if (EOLB) {
-		Kb.block<2, 3>(jB, ja) = -Fb.transpose() * Kbba;
+		//Kb.block<2, 3>(jB, ja) = -Fb.transpose() * Kbba;
 		Kb.block<2, 3>(jB, jb) = -Fb.transpose() * Kbbb;
 		Kb.block<2, 3>(jB, jc) = -Fb.transpose() * Kbbc;
 		Kb.block<2, 3>(jB, jd) = -Fb.transpose() * Kbbd;
+
+		Kb.block<3, 2>(ja, jB) = -Kbab * Fb;
 	}
 	if (EOLC) {
-		Kb.block<2, 3>(jC, ja) = -Fc.transpose() * Kbca;
-		Kb.block<2, 3>(jC, jb) = -Fc.transpose() * Kbcb;
+		//Kb.block<2, 3>(jC, ja) = -Fc.transpose() * Kbca;
+		//Kb.block<2, 3>(jC, jb) = -Fc.transpose() * Kbcb;
 		Kb.block<2, 3>(jC, jc) = -Fc.transpose() * Kbcc;
 		Kb.block<2, 3>(jC, jd) = -Fc.transpose() * Kbcd;
+
+		Kb.block<3, 2>(ja, jC) = -Kbac * Fc;
+		Kb.block<3, 2>(jb, jC) = -Kbbc * Fc;
 	}
 	if (EOLD) {
-		Kb.block<2, 3>(jD, ja) = -Fd.transpose() * Kbda;
-		Kb.block<2, 3>(jD, jb) = -Fd.transpose() * Kbdb;
-		Kb.block<2, 3>(jD, jc) = -Fd.transpose() * Kbdc;
+		//Kb.block<2, 3>(jD, ja) = -Fd.transpose() * Kbda;
+		//Kb.block<2, 3>(jD, jb) = -Fd.transpose() * Kbdb;
+		//Kb.block<2, 3>(jD, jc) = -Fd.transpose() * Kbdc;
 		Kb.block<2, 3>(jD, jd) = -Fd.transpose() * Kbdd;
+
+		Kb.block<3, 2>(ja, jD) = -Kbad * Fd;
+		Kb.block<3, 2>(jb, jD) = -Kbbd * Fd;
+		Kb.block<3, 2>(jc, jD) = -Kbcd * Fd;
 	}
 }
 
@@ -695,7 +808,7 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 				fillXXB(MDK_, KXX, cindexX, dindexX);
 			}
 
-			MatrixXd KXx;
+			MatrixXd KXx, KxX;
 			if (to_eolA) {
 				KXx = damping(1) * h * h * Kbe.block<2, 3>(3, 0);
 				fillXxB(MDK_, KXx, aindexX, aindex);
@@ -707,34 +820,49 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 				fillXxB(MDK_, KXx, aindexX, dindex);
 			}
 			if (to_eolB) {
-				KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 0);
-				fillXxB(MDK_, KXx, bindexX, aindex);
+				//KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 0);
+				//fillXxB(MDK_, KXx, bindexX, aindex);
 				KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 5);
 				fillXxB(MDK_, KXx, bindexX, bindex);
 				KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 10);
 				fillXxB(MDK_, KXx, bindexX, cindex);
 				KXx = damping(1) * h * h * Kbe.block<2, 3>(8, 15);
 				fillXxB(MDK_, KXx, bindexX, dindex);
+
+				KxX = damping(1) * h * h * Kbe.block<3, 2>(0, 8);
+				fillxXB(MDK_, KxX, aindex, bindexX);
 			}
 			if (to_eolC) {
-				KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 0);
-				fillXxB(MDK_, KXx, cindexX, aindex);
-				KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 5);
-				fillXxB(MDK_, KXx, cindexX, bindex);
+				//KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 0);
+				//fillXxB(MDK_, KXx, cindexX, aindex);
+				//KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 5);
+				//fillXxB(MDK_, KXx, cindexX, bindex);
 				KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 10);
 				fillXxB(MDK_, KXx, cindexX, cindex);
 				KXx = damping(1) * h * h * Kbe.block<2, 3>(13, 15);
 				fillXxB(MDK_, KXx, cindexX, dindex);
+
+				KxX = damping(1) * h * h * Kbe.block<3, 2>(0, 13);
+				fillxXB(MDK_, KxX, aindex, cindexX);
+				KxX = damping(1) * h * h * Kbe.block<3, 2>(5, 13);
+				fillxXB(MDK_, KxX, bindex, cindexX);
 			}
 			if (to_eolD) {
-				KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 0);
-				fillXxB(MDK_, KXx, dindexX, aindex);
-				KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 5);
-				fillXxB(MDK_, KXx, dindexX, bindex);
-				KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 10);
-				fillXxB(MDK_, KXx, dindexX, cindex);
+				//KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 0);
+				//fillXxB(MDK_, KXx, dindexX, aindex);
+				//KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 5);
+				//fillXxB(MDK_, KXx, dindexX, bindex);
+				//KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 10);
+				//fillXxB(MDK_, KXx, dindexX, cindex);
 				KXx = damping(1) * h * h * Kbe.block<2, 3>(18, 15);
 				fillXxB(MDK_, KXx, dindexX, dindex);
+
+				KxX = damping(1) * h * h * Kbe.block<3, 2>(0, 18);
+				fillxXB(MDK_, KxX, aindex, dindexX);
+				KxX = damping(1) * h * h * Kbe.block<3, 2>(5, 18);
+				fillxXB(MDK_, KxX, bindex, dindexX);
+				KxX = damping(1) * h * h * Kbe.block<3, 2>(10, 18);
+				fillxXB(MDK_, KxX, cindex, dindexX);
 			}
 		}
 		else {
@@ -771,9 +899,9 @@ void Forces::fill(const Mesh& mesh, const Material& mat, const Vector3d& grav, d
 	vector<T> M_;
 	vector<T> MDK_;
 
-	nodeBasedF(mesh, f, M_, grav);
-	faceBasedF(mesh, f, MDK_, h);
-	//edgeBasedF(mesh, mat, f, MDK_, h);
+	//nodeBasedF(mesh, f, M_, grav);
+	faceBasedF(mesh, f, MDK_, M_, h);
+	edgeBasedF(mesh, mat, f, MDK_, h);
 
 	M.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
 	MDK.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);

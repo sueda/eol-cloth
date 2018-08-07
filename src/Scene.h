@@ -10,6 +10,7 @@
 #include <Eigen/Dense>
 
 #include "boxTriCollision.h"
+#include "BrenderManager.h"
 
 class Cloth;
 class Obstacles;
@@ -31,9 +32,9 @@ public:
 	virtual ~Scene() {};
 	
 	void load(const std::string &RESOURCE_DIR);
-	void init(const bool online, const bool exportObjs);
+	void init(const bool& online, const bool& exportObjs, const std::string& OUTPUT_DIR);
 	void reset();
-	void step();
+	void step(const bool& online, const bool& exportObjs);
 	void partialStep();
 
 #ifdef EOLC_ONLINE
@@ -46,6 +47,7 @@ public:
 	Eigen::Vector3d grav;
 
 	bool EOLon;
+	bool REMESHon;
 
 	int part;
 
@@ -58,6 +60,9 @@ public:
 private:
 
 	double t;
+
+	// Export
+	BrenderManager *brender;
 
 };
 

@@ -23,18 +23,19 @@ OPTION(IGL "Build with libIGL support" OFF)
 # These paths are machine specific
 # These paths are examples
 
- SET(DEF_DIR_EIGEN "C:\\c++\\eigen-3.3.4")
+ SET(DEF_DIR_EIGEN "D:\\c++\\eigen-3.3.4")
  
  IF(${ONLINE})
-	 SET(DEF_DIR_GLM "C:\\c++\\glm-0.9.8.5")
-	 SET(DEF_DIR_GLFW "C:\\c++\\glfw-3.2.1")
-	 SET(DEF_DIR_GLEW "C:\\c++\\glew-2.1.0")
+	 SET(DEF_DIR_GLM "D:\\c++\\glm-0.9.8.4")
+	 SET(DEF_DIR_GLFW "D:\\c++\\glfw-3.2.1")
+	 SET(DEF_DIR_GLEW "D:\\c++\\glew-2.1.0")
 	 ADD_DEFINITIONS(-DEOLC_ONLINE)
  ENDIF()
  
  IF(${MOSEK}) 
-	 SET(DEF_DIR_MOSEK "C:\\Program Files\\Mosek\\8\\tools\\platform\\win64x86") #Location of /h and /bin
+	 SET(DEF_DIR_MOSEK "C:\\Program Files\\Mosek\\8\\tools\\platform\\win64x86") # Location of /h and /bin
 	 SET(DEF_BINARY_MOSEK "mosek64_8_1.lib") # Platform specific
+	 ADD_DEFINITIONS(-DkMosekLicensePath="C:/Users/weid691/mosek/mosek.lic") # Path to license file
 	 ADD_DEFINITIONS(-DEOLC_MOSEK)
  ENDIF()
  

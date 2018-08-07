@@ -8,6 +8,8 @@
 #include <vector>
 #include <memory>
 
+#include "BrenderManager.h"
+
 class Points;
 class Box;
 class Shape;
@@ -33,6 +35,8 @@ public:
 
 	void load(const std::string &RESOURCE_DIR);
 	void step(double h);
+
+	void addExport(BrenderManager *brender);
 
 #ifdef EOLC_ONLINE
 	void draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;

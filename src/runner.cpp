@@ -47,15 +47,18 @@ shared_ptr<Program> progPhong;
 shared_ptr<Program> progSimple;
 #endif // EOLC_ONLINE
 
-void init_offline(const shared_ptr<genSet> gs, const string &SIMSET_FILE)
+void init_offline(const string &SIMSET_FILE)
 {
-
+	scene = make_shared<Scene>();
+	scene->load(gs->RESOURCE_DIR);
+	load_simset(scene, SIMSET_FILE);
+	scene->init(gs->online, gs->exportObjs, gs->OUTPUT_DIR);
 }
 
 void run_offline()
 {
 	while (true) {
-		//step
+		scene->step(gs->online, gs->exportObjs);
 	}
 }
 
@@ -78,7 +81,7 @@ static void char_callback(GLFWwindow *window, unsigned int key)
 	keyToggles[key] = !keyToggles[key];
 	switch (key) {
 	case 'h':
-		scene->step();
+		scene->step(gs->online, gs->exportObjs);
 		break;
 	case 'r':
 		//scene->reset();
@@ -119,13 +122,13 @@ void stepperFunc()
 {
 	while (true) {
 		if (keyToggles[(unsigned)' ']) {
-			scene->step();
+			scene->step(gs->online, gs->exportObjs);
 		}
 		this_thread::sleep_for(chrono::microseconds(1));
 	}
 }
 
-bool init_online(const shared_ptr<genSet> gs, const string &SIMSET_FILE)
+bool init_online(const string &SIMSET_FILE)
 {
 	// Set error callback.
 	glfwSetErrorCallback(error_callback);
@@ -198,7 +201,7 @@ bool init_online(const shared_ptr<genSet> gs, const string &SIMSET_FILE)
 	scene = make_shared<Scene>();
 	scene->load(gs->RESOURCE_DIR);
 	load_simset(scene, SIMSET_FILE);
-	scene->init(gs->online, gs->exportObjs);
+	scene->init(gs->online, gs->exportObjs, gs->OUTPUT_DIR);
 
 	// If there were any OpenGL errors, this will print something.
 	GLSL::checkError(GET_FILE_LINE);
@@ -288,14 +291,14 @@ void start_running(const string &GENSET_FILE, const string &SIMSET_FILE)
 
 	if (gs->online) {
 #ifdef EOLC_ONLINE
-		init_online(gs, SIMSET_FILE);
+		init_online(SIMSET_FILE);
 		run_online();
 #else
 		cout << "ERROR: Attempting to run in online mode without building the online libraries." << endl;
 #endif // EOL_ONLINE
 	}
 	else {
-		init_offline(gs, SIMSET_FILE);
+		init_offline(SIMSET_FILE);
 		run_offline();
 	}
 }

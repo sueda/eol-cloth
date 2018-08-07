@@ -20,6 +20,7 @@ class Program;
 
 //class Mesh;
 class Obstacles;
+class FixedList;
 
 class Constraints
 {
@@ -44,7 +45,7 @@ public:
 
 	void init(const std::shared_ptr<Obstacles> obs);
 	void updateTable(const std::shared_ptr<Obstacles> obs);
-	void fill(const Mesh& mesh, const std::shared_ptr<Obstacles> obs, double h);
+	void fill(const Mesh& mesh, const std::shared_ptr<Obstacles> obs, const std::shared_ptr<FixedList> fs, double h, const bool& online);
 
 #ifdef EOLC_ONLINE
 	void drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;

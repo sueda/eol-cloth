@@ -5,9 +5,11 @@
 	// This can be left undefined in which case Eigen solvers will be used, but simulations must be collision free
 	"solver": "mosek",
 
-	"timestep": 0.5e-2, // Defaults to 0.5e-3
+	"timestep": 0.5e-2, // Defaults to 0.5e-2
 	
 	"gravity": [0.0, 0.0, -9.8], // Defaults to -9.8 in the Z direction	
+	
+	"REMESH": true, // Defaults to false. The remeshing settings should be set if this is on.
 	
 	"EOL": true, // Defaults to false. This on forces Remeshing on
 	
@@ -37,14 +39,30 @@
 			"refine_angle": 0.3,
 			"refine_compression": 0.005,
 			"refine_velocity": 0.5,
-			"size": [120e-3, 150e-3], // These are the main bounds that changes the overall resolution
+			"size": [320e-3, 350e-3], // These are the main bounds that changes the overall resolution
 			"aspect_min": 0.2
 		},
 		
-		// 
-		"Fixed": [
-			[0, 0, 0, 0]
-		]
+		// The corner points can be fixed or given a scripted motion
+		// 1 for the first three values turns on fix/script along the x,y,z axis 
+		// The number of the second three values is the set velocity of that point along that axis, i.e. 0 is fixed
+		// When is the the point in simulation seconds the fixed parameters should change
+		"Fixed": {
+			"0": {
+				"when": 0,
+				//"corner1": [1, 1, 1, 0, 0, 0],
+				//"corner2": [1, 1, 1, 0, 0, 0],
+				"corner3": [1, 1, 1, 0, 0, 0],
+				"corner4": [1, 1, 1, 0, 0, 0]
+			},
+			"1": {
+				"when": 0.5,
+				//"corner1": [1, 1, 1, 0, 0, 0],
+				//"corner2": [1, 1, 1, 0, 0, 0],
+				"corner3": [1, 1, 1, 0.2, 0, 0],
+				"corner4": [1, 1, 1, 0.2, 0, 0]
+			}
+		}
 	},
 	
 	// Obstacles can include points, boxes, or both
@@ -53,14 +71,18 @@
 		"threshold": 5e-3,
 		"points_file": "",
 		"points": [
-			[0.91, 10.885, -0.001, 
-			0.0, 0.0, -1.0]
+			[0.51, 0.585, -10.001, 
+			0.0, 0.0, 1.0]
 		],
 		
 		"box_file": "",
 		"boxes": [
-			[0.45, 0.45, 0.5,
-			0.4425, 0.4425, -0.249,
+			//[0.45, 0.45, 0.5,
+			//0.4425, 0.4425, -0.249,
+			//0.0, 0.0, 0.0,
+			//0.0, 0.0, 0.0]
+			[1.0, 1.5, 1.0,
+			0.9525, 0.4425, -0.549,
 			0.0, 0.0, 0.0,
 			0.0, 0.0, 0.0]
 		]

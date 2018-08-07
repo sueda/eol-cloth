@@ -13,6 +13,7 @@ using namespace std;
 //using namespace Eigen;
 
 double thresh = 0.01; // TODO:: Move
+double boundary = 0.01; // TODO:: Move;
 
 Vert *adjacent_vert(const Node *node, const Vert *vert);
 
@@ -432,27 +433,27 @@ bool collapse_nonconformal(Mesh &mesh, bool &allclear)
 	return false;
 }
 
-bool collapse_close(Mesh &mesh)
-{
-	for (int i = 0; i < mesh.nodes.size(); i++) {
-		Node *n0 = mesh.nodes[i];
-		if (n0->EoL) {
-			for (int e = 0; e < n0->adje.size(); e++) {
-				Edge *e0 = n0->adje[e];
-				Node *n1 = other_node(e0, n0);
-				if (!n1->EoL && !is_seam_or_boundary(n1) && edge_length(e0) < thresh) {
-					RemeshOp op;
-					if (n0 == e0->n[0]) op = collapse_edgeForced(e0, 1);
-					else op = collapse_edgeForced(e0, 0);
-					if (op.empty()) continue;
-					op.done();
-					return true;
-				}
-			}
-		}
-	}
-	return false;
-}
+//bool collapse_close(Mesh &mesh)
+//{
+//	for (int i = 0; i < mesh.nodes.size(); i++) {
+//		Node *n0 = mesh.nodes[i];
+//		if (n0->EoL) {
+//			for (int e = 0; e < n0->adje.size(); e++) {
+//				Edge *e0 = n0->adje[e];
+//				Node *n1 = other_node(e0, n0);
+//				if (!n1->EoL && !is_seam_or_boundary(n1) && edge_length(e0) < thresh) {
+//					RemeshOp op;
+//					if (n0 == e0->n[0]) op = collapse_edgeForced(e0, 1);
+//					else op = collapse_edgeForced(e0, 0);
+//					if (op.empty()) continue;
+//					op.done();
+//					return true;
+//				}
+//			}
+//		}
+//	}
+//	return false;
+//}
 
 int conformalCount(Face *f)
 {
@@ -578,59 +579,10 @@ void cleanup(Mesh& mesh)
 	markPreserve(mesh); // Probably doesn't need to be called so much, but wan't to be safe
 }
 
-// TODO::
-// Boundary condition
-// Don't collapse corners 
-// ArcSim sizing on new nodes?
+// TODO:: I think there are problems when a box corner reaches the cloth border but the two box edges still move through the cloth
 
 void preprocess(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 {
-	//double r0 = (double) rand() / RAND_MAX;
-	//double r1 = (double) rand() / RAND_MAX;
-	////double r0 = 0.6 + upp;
-	////double r1 = 0.65 + upp;
-	////upp += 0.1;
-	//Face *f = get_enclosing_face(mesh, Vec2(r0, r1));
-	//Vec3 bary = get_barycentric_coords(Vec2(r0, r1), f);
-	////RemeshOp op = split_face(f, bary);
-	//////op.update(mesh);
-	////op.done();
-	////RemeshOp op2 = split_edge(mesh.edges[wh], .3);
-	////op2.done();
-	////wh++;
-	//
-	//vector<shared_ptr<btc::Collision> > test;
-	//auto c = make_shared<btc::Collision>();
-	//c->count1 = 1;
-	//c->count2 = 3;
-	//c->verts1 << wh, -1, -1;
-	//c->verts2 << f->v[0]->index, f->v[1]->index, f->v[2]->index;
-	//c->weights2 << bary[0], bary[1], bary[2];
-	//c->tri2 = f->index;
-	//c->edge1.push_back(0);
-	//test.push_back(c);
-	//wh++;
-
-	//int r2 = rand() % (mesh.edges.size()-1);
-	//double r3 = (double)rand() / RAND_MAX;
-	//Edge *e = mesh.edges[r2];
-	//auto c1 = make_shared<btc::Collision>();
-	//c1->count1 = 2;
-	//c1->count2 = 2;
-	//c1->verts2 << e->n[0]->index, e->n[1]->index, -1;
-	//c1->weights2 << 1.0 - r3, r3, 0.0;
-	//c1->edge1.push_back(0);
-	//test.push_back(c1);
-
-	//for (int i = 0; i < mesh.nodes.size(); i++) {
-	//	mesh.nodes[i]->EoL = false;
-	//	mesh.nodes[i]->cornerID = -1;
-	//	mesh.nodes[i]->cdEdges.clear();
-	//}
-	//for (int i = 0; i < mesh.edges.size(); i++) {
-	//	mesh.edges[i]->preserve = false;
-	//}
-
 	markWasEOL(mesh);
 	addGeometry(mesh, cls);
 	revertWasEOL(mesh);

@@ -72,7 +72,7 @@ int vertsEdge1_data[] = {
 	9, 10, 11
 };
 
-Box::Box(const shared_ptr<Shape> s) :
+Box::Box(const shared_ptr<Shape> s, string en) :
 	num_points(8),
 	num_edges(12),
 	dim(1.0, 1.0, 1.0),
@@ -81,7 +81,8 @@ Box::Box(const shared_ptr<Shape> s) :
 	E1inv(Eigen::Matrix4d::Identity()),
 	adjoint(Eigen::Matrix<double, 6, 6>::Identity()),
 	v(Eigen::Matrix<double, 6, 1>::Zero()),
-	boxShape(s)
+	boxShape(s),
+	exportName(en)
 {
 	Eigen::Map<Eigen::Matrix<double, 3, 6, Eigen::ColMajor> > faceNorms_(faceNorm_data);
 	faceNorms = E1.block<3, 3>(0, 0) * faceNorms_;
@@ -158,7 +159,7 @@ int Box::getBrenderCount() const
 vector<string> Box::getBrenderNames() const
 {
 	vector<string> names;
-	names.push_back("Box");
+	names.push_back(exportName);
 	return names;
 }
 
