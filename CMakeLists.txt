@@ -3,7 +3,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 # Name of the project
-PROJECT(EOL-Cloth)
+PROJECT(eol-cloth)
 
 #-----------------------------------------------
 # USER SETTINGS
@@ -16,7 +16,7 @@ OPTION(ONLINE "Build with online rendering supported" ON)
 # Include support for one or multiple solvers
 OPTION(MOSEK "Build with Mosek support" OFF)
 OPTION(GUROBI "Build with Gurobi support" OFF)
-OPTION(IGL "Build with libIGL support" OFF)
+OPTION(IGL "Build with libIGL support" OFF) # Not used in the current version
 
 
 # LIBRARY PATHS

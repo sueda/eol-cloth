@@ -19,7 +19,6 @@
 #include "ComputeBending.h"
 #include "ComputeInertial.h"
 #include "ComputeMembrane.h"
-#include "ComputeInertiaEOL.h"
 
 #include "external\ArcSim\util.hpp"
 
