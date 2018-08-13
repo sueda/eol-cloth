@@ -80,7 +80,7 @@ void Scene::step(const bool& online, const bool& exportObjs)
 		cloth->updatePreviousMesh();
 		CD(cloth->mesh, obs, cls);
 		preprocess(cloth->mesh, cls);
-		cout << "pre" << endl;
+		//cout << "pre" << endl;
 	}
 	if (REMESHon) {
 		dynamic_remesh(cloth->mesh);
@@ -91,7 +91,7 @@ void Scene::step(const bool& online, const bool& exportObjs)
 	cls.clear();
 	//mesh2m(cloth->mesh, "mesh.m", true);
 	if (exportObjs) brender->exportBrender(t);
-	cout << "step" << endl;
+	//cout << "step" << endl;
 	t += h;
 }
 

@@ -4,6 +4,8 @@ Eulerian-on-Lagrangian Cloth Simulation
 EoL-Cloth is a simulation tool for simulating the phenomenon of cloth sliding over sharp geometric features such as boxes and points. It was developed at Texas A&M University and the coinciding publication was presented at SIGGRAPH 2018.  
 
 Check out the project page [here](http://faculty.cs.tamu.edu/sueda/projects/eol-cloth/ "EoL-Cloth").
+
+# NOTE: THERE IS A BUG WITH THE BOX EDGE THAT WAS INTRODUCED, IT WILL BE FIXED SOON
 ## Installing
 #### Dependencies
 * [CMake](https://cmake.org/ "CMake")

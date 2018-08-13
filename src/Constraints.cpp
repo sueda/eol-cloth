@@ -270,6 +270,11 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 					Vector2d orth_border = Vector2d(node->verts[0]->u[1] - opp_node->verts[0]->u[1], -node->verts[0]->u[0] - opp_node->verts[0]->u[0]).normalized(); // This should be orthogonal to the edge connecting the two nodes
 					Aeq_.push_back(T(eqsize, mesh.nodes.size() * 3 + node->EoL_index * 2, orth_border(0)));
 					Aeq_.push_back(T(eqsize, mesh.nodes.size() * 3 + node->EoL_index * 2 + 1, orth_border(1)));
+					if (online) {
+						drawAeq.push_back(Vector3d(eqsize, node->x[0], orth_border(0)));
+						drawAeq.push_back(Vector3d(eqsize, node->x[1], orth_border(1)));
+						drawAeq.push_back(Vector3d(eqsize, 1.0, 0.0));
+					}
 					eqsize++;
 				}
 				// If internal, the Eulerian constraint forces tangential motion to realize in the Lagrangian space
@@ -279,13 +284,23 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 					for (int e = 0; e < node->adje.size(); e++) {
 						if (node->adje[e]->preserve) {
 							Edge* edge = node->adje[e];
-							tan_ave += Vector2d(edge->n[1]->verts[0]->u[0] - edge->n[0]->verts[0]->u[0], edge->n[1]->verts[0]->u[1] - edge->n[0]->verts[0]->u[1]).normalized();
+							if (norm(edge->n[0]->verts[0]->u) > norm(edge->n[1]->verts[0]->u)) {
+								tan_ave += Vector2d(edge->n[1]->verts[0]->u[0] - edge->n[0]->verts[0]->u[0], edge->n[1]->verts[0]->u[1] - edge->n[0]->verts[0]->u[1]).normalized();
+							}
+							else {
+								tan_ave += Vector2d(edge->n[0]->verts[0]->u[0] - edge->n[1]->verts[0]->u[0], edge->n[0]->verts[0]->u[1] - edge->n[1]->verts[0]->u[1]).normalized();
+							}
 							tot_conf++;
 						}
 					}
 					tan_ave.normalize();
 					Aeq_.push_back(T(eqsize, mesh.nodes.size() * 3 + node->EoL_index * 2, tan_ave(0)));
 					Aeq_.push_back(T(eqsize, mesh.nodes.size() * 3 + node->EoL_index * 2 + 1, tan_ave(1)));
+					if (online) {
+						drawAeq.push_back(Vector3d(eqsize, node->x[0], tan_ave(0)));
+						drawAeq.push_back(Vector3d(eqsize, node->x[1], tan_ave(1)));
+						drawAeq.push_back(Vector3d(eqsize, 1.0, 0.0));
+					}
 					eqsize++;
 				}
 			}
@@ -407,6 +422,24 @@ void Constraints::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Progra
 		//cout << drawAineq[i](1) << endl;
 		tpos(inerdex) = drawAineq[i](1);
 		tcon(inerdex) = drawAineq[i](2);
+		inerdex++;
+		if (inerdex > 2) {
+			glBegin(GL_LINES);
+			glVertex3f(tpos(0), tpos(1), tpos(2));
+			glVertex3f(tpos(0) + tcon(0), tpos(1) + tcon(1), tpos(2) + tcon(2));
+			glEnd();
+		}
+	}
+
+	glColor3f(0.0f, 0.0f, 1.0f);
+	for (int i = 0; i < drawAeq.size(); i++) {
+		if (connum != drawAeq[i](0)) {
+			connum = drawAeq[i](0);
+			inerdex = 0;
+		}
+		//cout << drawAineq[i](1) << endl;
+		tpos(inerdex) = drawAeq[i](1);
+		tcon(inerdex) = drawAeq[i](2);
 		inerdex++;
 		if (inerdex > 2) {
 			glBegin(GL_LINES);

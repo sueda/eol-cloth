@@ -179,9 +179,13 @@ void fillEOLInertia(const Face* face, VectorXd& fi, MatrixXd& Mi)
 	MatrixXd Fa, Fb, Fc;
 	bool EOLA = face->v[0]->node->EoL; bool EOLB = face->v[1]->node->EoL; bool EOLC = face->v[2]->node->EoL;
 
-	if (EOLA) Fa = deform_grad_v(face->v[0]);
-	if (EOLB) Fb = deform_grad_v(face->v[1]);
-	if (EOLC) Fc = deform_grad_v(face->v[2]);
+	//if (EOLA) Fa = deform_grad_v(face->v[0]);
+	//if (EOLB) Fb = deform_grad_v(face->v[1]);
+	//if (EOLC) Fc = deform_grad_v(face->v[2]);
+
+	if (EOLA) Fa = deform_grad(face);
+	if (EOLB) Fb = deform_grad(face);
+	if (EOLC) Fc = deform_grad(face);
 
 	Vector3d fia = fi.segment<3>(0); Vector3d fib = fi.segment<3>(3); Vector3d fic = fi.segment<3>(6);
 
@@ -251,9 +255,13 @@ void fillEOLMembrane(const Face* face, VectorXd& fm, MatrixXd& Km)
 	MatrixXd Fa, Fb, Fc;
 	bool EOLA = face->v[0]->node->EoL; bool EOLB = face->v[1]->node->EoL; bool EOLC = face->v[2]->node->EoL;
 
-	if (EOLA) Fa = deform_grad_v(face->v[0]);
-	if (EOLB) Fb = deform_grad_v(face->v[1]);
-	if (EOLC) Fc = deform_grad_v(face->v[2]);
+	//if (EOLA) Fa = deform_grad_v(face->v[0]);
+	//if (EOLB) Fb = deform_grad_v(face->v[1]);
+	//if (EOLC) Fc = deform_grad_v(face->v[2]);
+
+	if (EOLA) Fa = deform_grad(face);
+	if (EOLB) Fb = deform_grad(face);
+	if (EOLC) Fc = deform_grad(face);
 
 	Vector3d fma = fm.segment<3>(0); Vector3d fmb = fm.segment<3>(3); Vector3d fmc = fm.segment<3>(6);
 
@@ -318,7 +326,7 @@ void fillEOLMembrane(const Face* face, VectorXd& fm, MatrixXd& Km)
 	}
 }
 
-void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, vector<T>& M_, double h)
+void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, vector<T>& M_, const Vector3d& grav, double h)
 {
 	for (int i = 0; i < mesh.faces.size(); i++) {
 		Face* face = mesh.faces[i];
@@ -361,6 +369,8 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, vector<T>& M_, d
 		Map<MatrixXd>(PP, Pm.rows(), Pm.cols()) = Pm;
 		Map<Matrix2d>(QQ, Qm.rows(), Qm.cols()) = Qm;
 
+		Map<Vector3d>(g, grav.rows(), grav.cols()) = grav;
+
 		int aindex = face->v[0]->node->index * 3;
 		int bindex = face->v[1]->node->index * 3;
 		int cindex = face->v[2]->node->index * 3;
@@ -370,14 +380,12 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, vector<T>& M_, d
 
 		double fm[9], Km[81];
 		double fi[9], Mi[81];
-		double gg[3] = {0.0, 0.0, -9.81};
 
 		VectorXd fme(15), fie(15);
 		MatrixXd Kme(15, 15), Mie(15, 15);
 
 		ComputeMembrane(xa, xb, xc, Xa, Xb, Xc, mat->e, mat->nu, PP, QQ, Wm, fm, Km);
-		//ComputeInertiaEOL(xa, xb, xc, Xa, Xb, Xc, g, material.density, Wi, fi, Mi);
-		ComputeInertial(xa, xb, xc, Xa, Xb, Xc, gg, mat->density, Wi, fi, Mi);
+		ComputeInertial(xa, xb, xc, Xa, Xb, Xc, g, mat->density, Wi, fi, Mi);
 
 		fme.segment<9>(0) = Map<VectorXd>(fm, 9);
 		Kme.block<9, 9>(0, 0) = Map<MatrixXd>(Km, 9, 9);
@@ -567,15 +575,23 @@ void fillxXB(vector<T>& MDK_, const MatrixXd& KxX, int i0, int i1)
 	}
 }
 
-void fillEOLBending(const Vert* v0, const Vert* v1, const Vert* v2, const Vert* v3, VectorXd& fb, MatrixXd& Kb)
+void fillEOLBending(const Edge* edge, const Vert* v0, const Vert* v1, const Vert* v2, const Vert* v3, VectorXd& fb, MatrixXd& Kb)
 {
 	MatrixXd Fa, Fb, Fc, Fd;
 	bool EOLA = v0->node->EoL; bool EOLB = v1->node->EoL; bool EOLC = v2->node->EoL; bool EOLD = v3->node->EoL;
 
-	if (EOLA) Fa = deform_grad_v(v0);
-	if (EOLB) Fb = deform_grad_v(v1);
-	if (EOLC) Fc = deform_grad_v(v2);
-	if (EOLD) Fd = deform_grad_v(v3);
+	//if (EOLA) Fa = deform_grad_v(v0);
+	//if (EOLB) Fb = deform_grad_v(v1);
+	//if (EOLC) Fc = deform_grad_v(v2);
+	//if (EOLD) Fd = deform_grad_v(v3);
+
+	MatrixXd F1 = deform_grad(edge->adjf[0]);
+	MatrixXd F2 = deform_grad(edge->adjf[1]);
+
+	if (EOLA) Fa = (F1 + F2) / 2;
+	if (EOLB) Fb = (F1 + F2) / 2;
+	if (EOLC) Fc = (F1 + F2) / 2;
+	if (EOLD) Fd = (F1 + F2) / 2;
 
 	Vector3d fba = fb.segment<3>(0); Vector3d fbb = fb.segment<3>(3); Vector3d fbc = fb.segment<3>(6); Vector3d fbd = fb.segment<3>(9);
 
@@ -727,7 +743,7 @@ void edgeBasedF(const Mesh& mesh, const Material& mat, VectorXd& f, vector<T>& M
 
 		if (to_eolA || to_eolB || to_eolC || to_eolD) {
 
-			fillEOLBending(v0, v1, v2, v3, fbe, Kbe);
+			fillEOLBending(edge, v0, v1, v2, v3, fbe, Kbe);
 			
 			f.segment<3>(aindex) += fbe.segment<3>(0);
 			if (to_eolA) f.segment<2>(aindexX) += fbe.segment<2>(3);
@@ -899,7 +915,7 @@ void Forces::fill(const Mesh& mesh, const Material& mat, const Vector3d& grav, d
 	vector<T> MDK_;
 
 	//nodeBasedF(mesh, f, M_, grav);
-	faceBasedF(mesh, f, MDK_, M_, h);
+	faceBasedF(mesh, f, MDK_, M_, grav, h);
 	edgeBasedF(mesh, mat, f, MDK_, h);
 
 	M.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);

@@ -65,6 +65,13 @@ void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 			double yX = cls[i]->weights2(0) * v0->u[1] +
 				cls[i]->weights2(1) * v1->u[1] +
 				cls[i]->weights2(2) * v2->u[1];
+
+			// Boundary
+			// TODO:: We want to use a generic check instead of a 0 to 1 range
+			if (xX - boundary <= 0.0 || xX + boundary >= 1.0 ||
+				yX - boundary <= 0.0 || yX + boundary >= 1.0) {
+				continue;
+			}
 				
 			// Faces CAN be added and deleted throughout this loop so we can't just use the CD returned tri
 			Face *f0 = get_enclosing_face(mesh, Vec2(xX, yX));
@@ -142,6 +149,13 @@ void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 				double yX = cls[i]->weights2(0) * v0->u[1] +
 					cls[i]->weights2(1) * v1->u[1];
 
+				// Boundary
+				// TODO:: We want to use a generic check instead of a 0 to 1 range
+				if (xX - boundary <= 0.0 || xX + boundary >= 1.0 ||
+					yX - boundary <= 0.0 || yX + boundary >= 1.0) {
+					continue;
+				}
+
 				// A barycentric tests largest two values should be the nodes of the new edge we need to split
 				Face *f0 = get_enclosing_face(mesh, Vec2(xX, yX));
 				Vec3 bary = get_barycentric_coords(Vec2(xX, yX), f0);
@@ -198,8 +212,17 @@ void revertWasEOL(Mesh& mesh)
 {
 	// If something is still marked as WasEOL then it has lifted off
 	for (int n = 0; n < mesh.nodes.size(); n++) {
-		if (mesh.nodes[n]->EoL_state == Node::WasEOL) {
-			Node* node = mesh.nodes[n];
+		Node* node = mesh.nodes[n];
+		if (node->EoL_state == Node::WasEOL) {
+			node->EoL = false;
+			node->preserve = false;
+			node->cornerID = -1;
+			node->cdEdges.clear();
+		}
+		// Boundary
+		// TODO:: We want to use a generic check instead of a 0 to 1 range
+		if (node->verts[0]->u[0] - boundary <= 0.0 || node->verts[0]->u[0] + boundary >= 1.0 ||
+			node->verts[0]->u[1] - boundary <= 0.0 || node->verts[0]->u[1] + boundary >= 1.0) {
 			node->EoL = false;
 			node->preserve = false;
 			node->cornerID = -1;

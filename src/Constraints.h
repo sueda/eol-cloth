@@ -37,6 +37,7 @@ public:
 	Eigen::SparseMatrix<double> Aineq;
 
 	std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> > drawAineq;
+	std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> > drawAeq;
 
 	Eigen::VectorXd beq;
 	Eigen::VectorXd bineq;
