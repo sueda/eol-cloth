@@ -28,17 +28,19 @@ class Forces
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-		Forces() {};
+		Forces() : EoL_cutoff(0) {};
 	virtual ~Forces() {};
 
 	Eigen::VectorXd f;
 	Eigen::SparseMatrix<double> M;
 	Eigen::SparseMatrix<double> MDK;
 
+	int EoL_cutoff;
+
 	void fill(const Mesh& mesh, const Material& mat, const Eigen::Vector3d& grav, double h);
 
 #ifdef EOLC_ONLINE
-	void drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
+	void drawSimple(const Mesh& mesh, std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
 #endif // EOLC_ONLINE
 };
 

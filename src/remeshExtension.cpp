@@ -52,8 +52,8 @@ RemeshOp split_edgeForced(Edge* edge, double d, double thresh) {
 	bool make_worse = true;
 	if (thresh > 0) {
 		for (size_t n = 0; n < op.added_nodes.size(); n++) {
-			for (int adje = 0; adje < op.added_nodes[n]->adje.size(); adje++) {
-				if (edge_length(op.added_nodes[n]->adje[adje]) < thresh) make_worse = false;
+			for (int adje = 0; adje < op.added_edges.size(); adje++) {
+				if (edge_length(op.added_edges[adje]) < thresh) make_worse = false;
 			}
 		}
 	}

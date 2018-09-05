@@ -183,9 +183,10 @@ void fillEOLInertia(const Face* face, VectorXd& fi, MatrixXd& Mi)
 	//if (EOLB) Fb = deform_grad_v(face->v[1]);
 	//if (EOLC) Fc = deform_grad_v(face->v[2]);
 
-	if (EOLA) Fa = deform_grad(face);
-	if (EOLB) Fb = deform_grad(face);
-	if (EOLC) Fc = deform_grad(face);
+	MatrixXd F = deform_grad(face);
+	if (EOLA) Fa = F;
+	if (EOLB) Fb = F;
+	if (EOLC) Fc = F;
 
 	Vector3d fia = fi.segment<3>(0); Vector3d fib = fi.segment<3>(3); Vector3d fic = fi.segment<3>(6);
 
@@ -229,7 +230,7 @@ void fillEOLInertia(const Face* face, VectorXd& fi, MatrixXd& Mi)
 		Mi.block<2, 3>(jA, jb) = -Fa.transpose() * Kiab;
 		Mi.block<2, 3>(jA, jc) = -Fa.transpose() * Kiac;
 
-		Mi.block<3, 2>(ja, jA) = -Kiaa * Fa;
+		//Mi.block<3, 2>(ja, jA) = -Kiaa * Fa;
 	}
 	if (EOLB) {
 		//Mi.block<2, 3>(jB, ja) = -Fb.transpose() * Kiba;
@@ -237,7 +238,7 @@ void fillEOLInertia(const Face* face, VectorXd& fi, MatrixXd& Mi)
 		Mi.block<2, 3>(jB, jc) = -Fb.transpose() * Kibc;
 
 		Mi.block<3, 2>(ja, jB) = -Kiab * Fb;
-		Mi.block<3, 2>(jb, jB) = -Kibb * Fb;
+		//Mi.block<3, 2>(jb, jB) = -Kibb * Fb;
 	}
 	if (EOLC) {
 		//Mi.block<2, 3>(jC, ja) = -Fc.transpose() * Kica;
@@ -246,7 +247,7 @@ void fillEOLInertia(const Face* face, VectorXd& fi, MatrixXd& Mi)
 
 		Mi.block<3, 2>(ja, jC) = -Kiac * Fc;
 		Mi.block<3, 2>(jb, jC) = -Kibc * Fc;
-		Mi.block<3, 2>(jc, jC) = -Kicc * Fc;
+		//Mi.block<3, 2>(jc, jC) = -Kicc * Fc;
 	}
 }
 
@@ -259,9 +260,10 @@ void fillEOLMembrane(const Face* face, VectorXd& fm, MatrixXd& Km)
 	//if (EOLB) Fb = deform_grad_v(face->v[1]);
 	//if (EOLC) Fc = deform_grad_v(face->v[2]);
 
-	if (EOLA) Fa = deform_grad(face);
-	if (EOLB) Fb = deform_grad(face);
-	if (EOLC) Fc = deform_grad(face);
+	MatrixXd F = deform_grad(face);
+	if (EOLA) Fa = F;
+	if (EOLB) Fb = F;
+	if (EOLC) Fc = F;
 
 	Vector3d fma = fm.segment<3>(0); Vector3d fmb = fm.segment<3>(3); Vector3d fmc = fm.segment<3>(6);
 
@@ -305,7 +307,7 @@ void fillEOLMembrane(const Face* face, VectorXd& fm, MatrixXd& Km)
 		Km.block<2, 3>(jA, jb) = -Fa.transpose() * Kmab;
 		Km.block<2, 3>(jA, jc) = -Fa.transpose() * Kmac;
 
-		Km.block<3, 2>(ja, jA) = -Kmaa * Fa;
+		//Km.block<3, 2>(ja, jA) = -Kmaa * Fa;
 	}
 	if (EOLB) {
 		//Km.block<2, 3>(jB, ja) = -Fb.transpose() * Kmba;
@@ -313,7 +315,7 @@ void fillEOLMembrane(const Face* face, VectorXd& fm, MatrixXd& Km)
 		Km.block<2, 3>(jB, jc) = -Fb.transpose() * Kmbc;
 
 		Km.block<3, 2>(ja, jB) = -Kmab * Fb;
-		Km.block<3, 2>(jb, jB) = -Kmbb * Fb;
+		//Km.block<3, 2>(jb, jB) = -Kmbb * Fb;
 	}
 	if (EOLC) {
 		//Km.block<2, 3>(jC, ja) = -Fc.transpose() * Kmca;
@@ -322,7 +324,7 @@ void fillEOLMembrane(const Face* face, VectorXd& fm, MatrixXd& Km)
 
 		Km.block<3, 2>(ja, jC) = -Kmac * Fc;
 		Km.block<3, 2>(jb, jC) = -Kmbc * Fc;
-		Km.block<3, 2>(jc, jC) = -Kmcc * Fc;
+		//Km.block<3, 2>(jc, jC) = -Kmcc * Fc;
 	}
 }
 
@@ -458,7 +460,7 @@ void faceBasedF(const Mesh& mesh, VectorXd& f, vector<T>& MDK_, vector<T>& M_, c
 			// X-x values
 			MatrixXd KXx, KxX, MXx, MxX;
 			if (face->v[0]->node->EoL) {
-				KXx = Kme.block<2, 3>(3, 0); MXx = Mie.block<2, 3>(3, 2);
+				KXx = Kme.block<2, 3>(3, 0); MXx = Mie.block<2, 3>(3, 0);
 				fillXxMI(MDK_, M_, KXx, MXx, aindexX, aindex, damping, h);
 				KXx = Kme.block<2, 3>(3, 5); MXx = Mie.block<2, 3>(3, 5);
 				fillXxMI(MDK_, M_, KXx, MXx, aindexX, bindex, damping, h);
@@ -914,9 +916,11 @@ void Forces::fill(const Mesh& mesh, const Material& mat, const Vector3d& grav, d
 	vector<T> M_;
 	vector<T> MDK_;
 
+	EoL_cutoff = mesh.nodes.size() * 3;
+
 	//nodeBasedF(mesh, f, M_, grav);
 	faceBasedF(mesh, f, MDK_, M_, grav, h);
-	edgeBasedF(mesh, mat, f, MDK_, h);
+	//edgeBasedF(mesh, mat, f, MDK_, h);
 
 	M.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
 	MDK.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
@@ -924,3 +928,34 @@ void Forces::fill(const Mesh& mesh, const Material& mat, const Vector3d& grav, d
 	M.setFromTriplets(M_.begin(), M_.end());
 	MDK.setFromTriplets(MDK_.begin(), MDK_.end());
 }
+
+#ifdef EOLC_ONLINE
+
+void Forces::drawSimple(const Mesh &mesh, shared_ptr<MatrixStack> MV, const shared_ptr<Program> prog) const
+{
+	//if (f.size() == 0) return;
+
+	//for (int n = 0; n < mesh.nodes.size(); n++) {
+	//	Node* node = mesh.nodes[n];
+	//	int nodei = n * 3;
+	//	if (nodei >= f.size()) continue;
+	//	double scale = 10.0;
+	//	glColor3f(1.0f, 0.0f, 1.0f);
+	//	glBegin(GL_LINES);
+	//	glVertex3f(node->x[0], node->x[1], node->x[2]);
+	//	glVertex3f(node->x[0] + (f(nodei) * scale), node->x[1] + (f(nodei + 1) * scale), node->x[2] + (f(nodei + 2) * scale));
+	//	glEnd();
+	//	if (node->EoL) {
+	//		int nodeEi = mesh.nodes.size() * 3 + node->EoL_index * 2;
+	//		MatrixXd F = deform_grad(node->verts[0]->adjf[0]);
+	//		Vector3d dF = F * f.segment<2>(nodeEi);
+	//		glColor3f(0.0f, 0.0f, 1.0f);
+	//		glBegin(GL_LINES);
+	//		glVertex3f(node->x[0], node->x[1], node->x[2]);
+	//		glVertex3f(node->x[0] + (dF(0) * scale), node->x[1] + (dF(1) * scale), node->x[2] + (dF(2) * scale));
+	//		glEnd();
+	//	}
+	//}
+}
+
+#endif

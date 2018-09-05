@@ -3,6 +3,7 @@
 #include "remeshExtension.h"
 #include "matlabOutputs.h"
 #include "conversions.h"
+#include "UtilEOL.h"
 
 #include "external\ArcSim\geometry.hpp"
 #include "external\ArcSim\subset.hpp"
@@ -10,10 +11,10 @@
 #include <stdlib.h>
 
 using namespace std;
-//using namespace Eigen;
+using namespace Eigen;
 
-double thresh = 0.01; // TODO:: Move
-double boundary = 0.01; // TODO:: Move;
+double thresh = 0.05; // TODO:: Move
+double boundary = 0.03; // TODO:: Move;
 
 Vert *adjacent_vert(const Node *node, const Vert *vert);
 
@@ -28,6 +29,18 @@ double linepoint(const Vec3 &A, const Vec3 &B, const Vec3 &P)
 	return apab / ab2;
 }
 
+double linePointDist(const Vector3d &A, const Vector3d &B, const Vector3d &P) {
+	// Line: A -> B
+	// Point: P
+	Vector3d AP = P - A;
+	Vector3d AB = B - A;
+	double ab2 = AB.dot(AB);
+	double apab = AP.dot(AB);
+	double t = apab / ab2;
+	Vector3d newP  = (1.0 - t)*A + t*B;
+	return (P - newP).norm();
+}
+
 void markWasEOL(Mesh& mesh) {
 	for (int n = 0; n < mesh.nodes.size(); n++) {
 		if (mesh.nodes[n]->EoL) {
@@ -36,7 +49,88 @@ void markWasEOL(Mesh& mesh) {
 	}
 }
 
-void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
+bool inBoundaryQ(const MatrixXd &bounds, const Vector3d & P, const double &brange) {
+	int b1, b2, corner = 0;
+	for (b1 = 0; b1 < bounds.cols(); b1++) {
+		if (b1 == bounds.cols() - 1) {
+			b2 = 0;
+		}
+		else {
+			b2 = b1 + 1;
+		}
+		if (linePointDist(bounds.block<3, 1>(0, b1), bounds.block<3, 1>(0, b2), P) < brange) return true;
+	}
+	return false;
+}
+
+bool inBoundaryN(const MatrixXd &bounds, const Vector3d & P, const Vec3 &e2, const double &brange) {
+	int b1, b2, corner = 0;
+	for (b1 = 0; b1 < bounds.cols(); b1++) {
+		if (b1 == bounds.cols() - 1) {
+			b2 = 0;
+		}
+		else {
+			b2 = b1 + 1;
+		}
+		if (linePointDist(bounds.block<3, 1>(0, b1), bounds.block<3, 1>(0, b2), P) < brange) {
+			corner++;
+			if (corner > 1) return true; // This point is in a boundary corner and should not be EOL
+			Vector3d A = bounds.block<3, 1>(0, b1);
+			Vector3d B = bounds.block<3, 1>(0, b2);
+			Vector3d AB = A - B;
+			double angle = get_angle(e2v(AB), e2);
+			if (angle < M_PI / 5 || angle >(4 * M_PI / 5)) return true;
+		}
+	}
+	return false;
+}
+
+bool inBoundary(const MatrixXd &bounds, const Node* node, const double &brange) {
+	// If this node is in a boundary, we want to check if its connected prserved edges are perpendicular within a range to the border edge
+	if (!node->EoL) return false; // We are only checking for EoL points
+	int b1, b2, corner = 0, preserved = 0;
+	Vert * vert = node->verts[0];
+	for (b1 = 0; b1 < bounds.cols(); b1++) {
+		if (b1 == bounds.cols() - 1) {
+			b2 = 0;
+		}
+		else {
+			b2 = b1 + 1;
+		}
+		if (linePointDist(bounds.block<3, 1>(0, b1), bounds.block<3, 1>(0, b2), v2e(vert->u)) < brange) {
+			if (node->cornerID >= 0) {
+				return true; // This is an EoL corner and should 
+			}
+			corner++;
+			if (corner > 1) {
+				return true; // This point is in a boundary corner and should not be EOL
+			}
+			for (int e = 0; e < node->adje.size(); e++) {
+				Edge *edge = node->adje[e];
+				if (edge->preserve) {
+					preserved++;
+					Vector3d A = bounds.block<3, 1>(0, b1);
+					Vector3d B = bounds.block<3, 1>(0, b2);
+					Vector3d AB = A - B;
+					Node *n1 = other_node(edge, node);
+					double angle = get_angle(e2v(AB), (vert->u - n1->verts[0]->u));
+					if (angle < M_PI / 5 || angle >(4 * M_PI / 5)) {
+						return true;
+					}
+				}
+			}
+			// If we've it here then that means we have an EoL point that is in a boundary yet not a corner point and has no surrounding preserved edges
+			// We'll make the assumption this is a lone EoL needing to be removed
+			if (preserved == 0) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void addGeometry(Mesh& mesh, const MatrixXd &boundaries, const vector<shared_ptr<btc::Collision> > cls)
 {
 	for (int i = 0; i < cls.size(); i++) {
 		// EOL nodes will be detected here
@@ -67,11 +161,7 @@ void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 				cls[i]->weights2(2) * v2->u[1];
 
 			// Boundary
-			// TODO:: We want to use a generic check instead of a 0 to 1 range
-			if (xX - boundary <= 0.0 || xX + boundary >= 1.0 ||
-				yX - boundary <= 0.0 || yX + boundary >= 1.0) {
-				continue;
-			}
+			if (inBoundaryQ(boundaries, Vector3d(xX, yX, 0.0), boundary)) continue;
 				
 			// Faces CAN be added and deleted throughout this loop so we can't just use the CD returned tri
 			Face *f0 = get_enclosing_face(mesh, Vec2(xX, yX));
@@ -139,25 +229,26 @@ void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 			Edge *e0 = get_edge(mesh.nodes[cls[i]->verts2(0)], mesh.nodes[cls[i]->verts2(1)]);
 			double d;
 
+			// We'll need this info for the boundary
+			Vert *v0 = mesh.verts[cls[i]->verts2(0)],
+				*v1 = mesh.verts[cls[i]->verts2(1)];
+
+			double xX = cls[i]->weights2(0) * v0->u[0] +
+				cls[i]->weights2(1) * v1->u[0];
+			double yX = cls[i]->weights2(0) * v0->u[1] +
+				cls[i]->weights2(1) * v1->u[1];
+
+			Face *f0 = get_enclosing_face(mesh, Vec2(xX, yX));
+
+			// Boundary simple
+			MatrixXd F = deform_grad(f0);
+			Vector2d e2 = F.transpose() * cls[i]->edgeDir;
+			if (inBoundaryN(boundaries, Vector3d(xX, yX, 0.0), Vec3(e2(0), e2(1), 0.0), boundary)) continue;
+
 			// If a previous collisions has already split this edge this get_edge will return NULL and we have to do a little more work to find it
 			if (e0 == NULL) {
-				Vert *v0 = mesh.verts[cls[i]->verts2(0)],
-					*v1 = mesh.verts[cls[i]->verts2(1)];
-
-				double xX = cls[i]->weights2(0) * v0->u[0] +
-					cls[i]->weights2(1) * v1->u[0];
-				double yX = cls[i]->weights2(0) * v0->u[1] +
-					cls[i]->weights2(1) * v1->u[1];
-
-				// Boundary
-				// TODO:: We want to use a generic check instead of a 0 to 1 range
-				if (xX - boundary <= 0.0 || xX + boundary >= 1.0 ||
-					yX - boundary <= 0.0 || yX + boundary >= 1.0) {
-					continue;
-				}
 
 				// A barycentric tests largest two values should be the nodes of the new edge we need to split
-				Face *f0 = get_enclosing_face(mesh, Vec2(xX, yX));
 				Vec3 bary = get_barycentric_coords(Vec2(xX, yX), f0);
 				double least = 1.0;
 				int which = -1;
@@ -208,7 +299,7 @@ void addGeometry(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
 	}
 }
 
-void revertWasEOL(Mesh& mesh)
+void revertWasEOL(Mesh& mesh, const MatrixXd & bounds)
 {
 	// If something is still marked as WasEOL then it has lifted off
 	for (int n = 0; n < mesh.nodes.size(); n++) {
@@ -220,9 +311,8 @@ void revertWasEOL(Mesh& mesh)
 			node->cdEdges.clear();
 		}
 		// Boundary
-		// TODO:: We want to use a generic check instead of a 0 to 1 range
-		if (node->verts[0]->u[0] - boundary <= 0.0 || node->verts[0]->u[0] + boundary >= 1.0 ||
-			node->verts[0]->u[1] - boundary <= 0.0 || node->verts[0]->u[1] + boundary >= 1.0) {
+		if (inBoundary(bounds, node, boundary)) {
+			node->EoL_state == Node::WasEOL;
 			node->EoL = false;
 			node->preserve = false;
 			node->cornerID = -1;
@@ -403,6 +493,7 @@ bool collapse_nonconformal(Mesh &mesh, bool &allclear)
 						Node *n0 = e0->n[0],
 							*n1 = e0->n[1];
 						if (n0->EoL && n1->EoL) continue;
+						if (n0->preserve || n1->preserve) continue; // Don't mess with preserved points which are different from EoL points
 						// Don't deal with edges between boundary and inside
 						if (!(
 							(is_seam_or_boundary(n0) && is_seam_or_boundary(n1)) ||
@@ -481,16 +572,16 @@ bool collapse_nonconformal(Mesh &mesh, bool &allclear)
 int conformalCount(Face *f)
 {
 	int count = 0;
-	for (int e = 0; e < 3; e++) {
-		if (f->adje[e]->preserve) count++;
+	for (int vert = 0; vert < 3; vert++) {
+		if (f->v[vert]->node->EoL) count++;
 	}
 	return count;
 }
 
 Node *single_eol_from_face(Face *f)
 {
-	for (int v = 0; v < 3; v++) {
-		if (f->v[v]->node->EoL) return f->v[v]->node;
+	for (int vert = 0; vert < 3; vert++) {
+		if (f->v[vert]->node->EoL) return f->v[vert]->node;
 	}
 	return NULL;
 }
@@ -520,6 +611,7 @@ double face_altitude(Edge* edge, Face* face) {
 bool split_illconditioned_faces(Mesh &mesh)
 {
 	vector<Edge*> bad_edges;
+	vector<int> case_pair;
 	for (int i = 0; i < mesh.faces.size(); i++) {
 		Face *f0 = mesh.faces[i];
 		int cc = conformalCount(f0);
@@ -527,22 +619,24 @@ bool split_illconditioned_faces(Mesh &mesh)
 			Node *n0 = single_eol_from_face(f0);
 			Edge *e0 = get_opp_edge(f0, n0);
 			if (face_altitude(e0, f0) < thresh / 2) {
-				cout << face_altitude(e0, f0) << endl;
 				bad_edges.push_back(e0);
+				case_pair.push_back(1);
 			}
 		}
+		// TODO:: Cases 2 and 3 may break if large triangles share individual EoL points without preserved edges
 		else if (cc == 2) {
 			Edge *e0 = single_conformal_edge_from_face(f0);
+			if (e0 == NULL) continue; // If two corner EoL points share a triangle with no preserved edge
 			if (face_altitude(e0, f0) < (thresh / 2)) {
-				cout << face_altitude(e0, f0) << endl;
 				bad_edges.push_back(e0);
+				case_pair.push_back(2);
 			}
 		}
 		else if(cc == 3) {
 			Edge *e0 = single_nonconformal_edge_from_face(f0);
 			if (face_altitude(e0, f0) < thresh / 2) {
-				cout << face_altitude(e0, f0) << endl;
 				bad_edges.push_back(e0);
+				case_pair.push_back(3);
 			}
 		}
 	}
@@ -562,14 +656,18 @@ bool split_illconditioned_faces(Mesh &mesh)
 				*v1 = adjacent_vert(node1, vertnew);
 			vertnew->sizing = 0.5 * (v0->sizing + v1->sizing);
 		}
-		// We don't want to try and split these triangles only to make them worse for the next pass
-		//bool make_worse = true;
-		//for (size_t n = 0; n < op.added_nodes.size(); n++) {
-		//	for (int adje = 0; adje < op.added_nodes[n]->adje.size(); adje++) {
-		//		if (edge_length(op.added_nodes[n]->adje[adje]) < thresh) make_worse = false;
-		//	}
-		//}
-		//if (make_worse) op.cancel();
+
+		// If we've split a conformal edge, this new node is EoL and must have the appropriate data
+		if (case_pair[e] == 2) {
+			Node *node = op.added_nodes[0]; // There should only be one?
+			node->EoL = true;
+			if (node0->EoL_state == Node::IsEOL && node1->EoL_state == Node::IsEOL) node->EoL_state = Node::NewEOLFromSplit;
+			else node->EoL_state = Node::NewEOL;
+			// Transfer cdEdges from the non corner EoL node
+			// This should be safe?
+			if (node0->cornerID >= 0) node->cdEdges = node1->cdEdges;
+			else node->cdEdges = node0->cdEdges;
+		}
 		op.set_null(bad_edges);
 		op.done();
 	}
@@ -602,17 +700,19 @@ void cleanup(Mesh& mesh)
 	markPreserve(mesh); // Probably doesn't need to be called so much, but wan't to be safe
 }
 
-// TODO:: I think there are problems when a box corner reaches the cloth border but the two box edges still move through the cloth
+// TODO:: I think there are problems when a box corner reaches the cloth border and the two box edges still move through the cloth
 
-void preprocess(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls)
+void preprocess(Mesh& mesh, const MatrixXd &boundaries, const vector<shared_ptr<btc::Collision> > cls)
 {
 	markWasEOL(mesh);
-	addGeometry(mesh, cls);
-	revertWasEOL(mesh);
+	addGeometry(mesh, boundaries, cls);
+	//revertWasEOL(mesh, boundaries);
 
 	markPreserve(mesh);
 
 	cleanup(mesh);
+
+	revertWasEOL(mesh, boundaries);
 
 	compute_ws_data(mesh);
 }
@@ -624,7 +724,7 @@ void preprocessClean(Mesh& mesh)
 }
 
 bool a;
-void preprocessPart(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls, int &part)
+void preprocessPart(Mesh& mesh, const MatrixXd &boundaries, const vector<shared_ptr<btc::Collision> > cls, int &part)
 {
 	if (part == 1) {
 		//for (int i = 0; i < mesh.nodes.size(); i++) {
@@ -637,8 +737,8 @@ void preprocessPart(Mesh& mesh, const vector<shared_ptr<btc::Collision> > cls, i
 		//}
 		a = true;
 		markWasEOL(mesh);
-		addGeometry(mesh, cls);
-		revertWasEOL(mesh);
+		addGeometry(mesh, boundaries, cls);
+		revertWasEOL(mesh, boundaries);
 		cout << "Add Geometry" << endl;
 	}
 	else if (part == 2) {

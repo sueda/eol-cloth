@@ -3,9 +3,9 @@
 {
 	// Use either "mosek" or "gurobi". Make sure you've compiiled with the specified solver enabled
 	// This can be left undefined in which case Eigen solvers will be used, but simulations must be collision free
-	"solver": "mosek",
+	"solver": "gurobi",
 
-	"timestep": 0.5e-3, // Defaults to 0.5e-2
+	"timestep": 0.5e-2, // Defaults to 0.5e-2
 	
 	"gravity": [0.0, 0.0, -9.8], // Defaults to -9.8 in the Z direction	
 	
@@ -54,11 +54,11 @@
 				"corner4": [1, 1, 1, 0, 0, 0]
 			},
 			"1": {
-				"when": 0.25,
+				"when": 0.35,
 				//"corner1": [1, 1, 1, 0, 0, 0],
 				//"corner2": [1, 1, 1, 0, 0, 0],
-				"corner3": [1, 1, 1, 0.2, 0, 0],
-				"corner4": [1, 1, 1, 0.2, 0, 0]
+				"corner3": [1, 1, 1, 0.1, 0, 0],
+				"corner4": [1, 1, 1, 0.1, 0, 0]
 			}
 		}
 	},
@@ -73,8 +73,8 @@
 		],
 		
 		"boxes": [
-			[1.0, 1.5, 1.0,
-			0.9525, 0.4425, -0.549,
+			[1.2, 1.5, 1.0,
+			0.9175, 0.4425, -0.549,
 			0.0, 0.0, 0.0,
 			0.0, 0.0, 0.0]
 		]

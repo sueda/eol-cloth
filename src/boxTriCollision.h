@@ -64,6 +64,7 @@ namespace btc
 		//   tri2 = i, where i is the triangle index for cloth
 		//   edge1 = [a b c ...], wher a, b, c, etc. are the edge indices of the surrounding edges
 		//   edge2 = -1
+		//	 edgeDir = [0 0 0]
 		// Edge-Edge:
 		//   count1 = 2
 		//   count2 = 2
@@ -75,6 +76,7 @@ namespace btc
 		//   tri2 = -1
 		//   edge1 = [i], where i is the edge index for box
 		//   edge2 = i, where i is the edge index for cloth
+		//	 edgeDir = [x y z] where this vector represents the box edge direction
 		// Face-Vert:
 		//   count1 = 3
 		//   count2 = 1
@@ -86,6 +88,7 @@ namespace btc
 		//   tri2 = -1
 		//   edge1 = []
 		//   edge2 = -1
+		//	 edgeDir = [0 0 0]
 
 		double dist; // distance
 		Eigen::Vector3d nor1; // normal
@@ -103,6 +106,7 @@ namespace btc
 		int tri2; // Triangle index for cloth
 		std::vector<int> edge1; // all surrounding edge indices for he box
 		int edge2; // edge index for cloth
+		Eigen::Vector3d edgeDir; // Direction of box edge TODO:: This a better way
 	};
 
 	/**

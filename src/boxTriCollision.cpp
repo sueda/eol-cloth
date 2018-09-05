@@ -116,6 +116,7 @@ namespace btc
 		tri1 = -1;
 		tri2 = -1;
 		edge2 = -1;
+		edgeDir = Vector3d::Zero();
 	}
 
 	Collision::~Collision()
@@ -1010,6 +1011,7 @@ namespace btc
 				c->weights2 << 1.0 - u2, u2, 0.0;
 				c->edge1.push_back(k1);
 				c->edge2 = k2;
+				c->edgeDir = tan1;
 				collisions.push_back(c);
 			}
 		}

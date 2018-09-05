@@ -71,6 +71,8 @@ void printstate(Mesh& mesh)
 
 void Scene::step(const bool& online, const bool& exportObjs)
 {
+	cout << "Sim time: " << t << endl;
+
 	if (part != 0) {
 		cout << "Please finish the partial step before making a full step" << endl;
 		return;
@@ -79,7 +81,7 @@ void Scene::step(const bool& online, const bool& exportObjs)
 	if (EOLon) {
 		cloth->updatePreviousMesh();
 		CD(cloth->mesh, obs, cls);
-		preprocess(cloth->mesh, cls);
+		preprocess(cloth->mesh, cloth->boundaries, cls);
 		//cout << "pre" << endl;
 	}
 	if (REMESHon) {
@@ -104,7 +106,7 @@ void Scene::partialStep()
 		cout << "CD" << endl;
 	}
 	else if (part >= 1 && part < 8) {
-		preprocessPart(cloth->mesh, cls, part);
+		preprocessPart(cloth->mesh, cloth->boundaries, cls, part);
 		set_indices(cloth->mesh);
 		cloth->updateBuffers();
 		mesh2m(cloth->mesh, "mesh.m", true);

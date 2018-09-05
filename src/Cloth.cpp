@@ -39,6 +39,14 @@ void Cloth::build(const Vector2i res,
 	const Vector3d &x10,
 	const Vector3d &x11)
 {
+	// Set boundary values
+	// In this fixed 4 corner case, the outer boundary is made up of those 4 corners
+	boundaries.resize(3, 4);
+	boundaries.block<3, 1>(0, 0) = x00;
+	boundaries.block<3, 1>(0, 1) = x01;
+	boundaries.block<3, 1>(0, 2) = x11; // we flip this order to they are sequential of a continueous boundary path
+	boundaries.block<3, 1>(0, 3) = x10;
+
 	for (int i = 0; i < res(0); ++i) {
 		double u = i / (res(0) - 1.0);
 		Vector3d x0 = (1 - u)*x00 + u*x10;
@@ -330,7 +338,7 @@ void Cloth::solve(shared_ptr<GeneralizedSolver> gs, double h)
 		consts->Aeq, consts->beq,
 		consts->Aineq, consts->bineq,
 		v);
-	//cout << v << endl;
+	vec_to_file(v, "v_solved", "solver.m", false);
 }
 
 void Cloth::step(shared_ptr<GeneralizedSolver> gs, shared_ptr<Obstacles> obs, const Vector3d& grav, double h, const bool& REMESHon, const bool& online)
@@ -489,6 +497,8 @@ void Cloth::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Program> p) 
 			glEnd();
 		}
 	}
+
+	myForces->drawSimple(mesh, MV, p);
 }
 #endif // EOLC_ONLINE
 

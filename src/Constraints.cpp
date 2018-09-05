@@ -20,8 +20,10 @@
 #include "Rigid.h"
 #include "Collisions.h"
 #include "FixedList.h"
+#include "conversions.h"
 //#include "external\ArcSim\mesh.hpp"
 #include "external\ArcSim\util.hpp"
+#include "external\ArcSim\geometry.hpp"
 
 #include <iostream>
 #include <utility>
@@ -116,6 +118,7 @@ void addFixed(const VectorXd& c, vector<T>& Aeq_, vector< pair<int, double> >& b
 	eqsize++;
 }
 
+// TODO:: This can probably be split into three nicer looking functions
 void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const shared_ptr<FixedList> fs, double h, const bool& online)
 {
 	updateTable(obs);
@@ -130,7 +133,10 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 	//vector<T> beq_;
 	//vector<T> bineq_;
 
-	drawAineq.clear();
+	if (online) {
+		drawAineq.clear();
+		drawAeq.clear();
+	}
 
 	int eqsize = 0;
 	int ineqsize = 0;
@@ -166,43 +172,104 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 					}
 				}
 
-				Aineq_.push_back(T(ineqsize, n * 3, -nor(0)));
-				Aineq_.push_back(T(ineqsize, n * 3 + 1, -nor(1)));
-				Aineq_.push_back(T(ineqsize, n * 3 + 2, -nor(2)));
-				if (online) {
-					drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], nor(0)));
-					drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], nor(1)));
-					drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[2], nor(2)));
+				// When locally flat we have a null space problem so we need to check
+				bool flat = true;
+				Node* node = mesh.nodes[n];
+				Face* face0 = node->verts[0]->adjf[0];
+				for (int f = 1; f < node->verts[0]->adjf.size(); f++) {
+					Face* face1 = node->verts[0]->adjf[f];
+					if (get_angle(face0->n, face1->n) > 0.5) {
+						flat = false;
+						break;
+					}
 				}
-				if (movement) {
-					bfill = nor.transpose() * xdot.segment<3>(0);
-					bineq_.push_back(make_pair(ineqsize, -bfill));
-				}
-				ineqsize++;
 
-				Aeq_.push_back(T(eqsize, n * 3, ortho1(0)));
-				Aeq_.push_back(T(eqsize, n * 3 + 1, ortho1(1)));
-				Aeq_.push_back(T(eqsize, n * 3 + 2, ortho1(2)));
-				//drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[0], ortho1(0)));
-				//drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[1], ortho1(1)));
-				//drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[2], ortho1(2)));
-				if (movement) {
-					bfill = ortho1.transpose() * xdot.segment<3>(0);
-					beq_.push_back(make_pair(eqsize, bfill));
-				}
-				eqsize++;
+				if (flat) {
+					Aineq_.push_back(T(ineqsize, n * 3, -nor(0)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, -nor(1)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, -nor(2)));
+					if (online) {
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], nor(0)));
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], nor(1)));
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[2], nor(2)));
+					}
+					if (movement) {
+						bfill = nor.transpose() * xdot.segment<3>(0);
+						bineq_.push_back(make_pair(ineqsize, -bfill));
+					}
+					ineqsize++;
 
-				Aeq_.push_back(T(eqsize, n * 3, ortho2(0)));
-				Aeq_.push_back(T(eqsize, n * 3 + 1, ortho2(1)));
-				Aeq_.push_back(T(eqsize, n * 3 + 2, ortho2(2)));
-				//drawAeq.push_back(T(eqsize, mesh.nodes[n]->x[0], ortho2(0)));
-				//drawAeq.push_back(T(eqsize, mesh.nodes[n]->x[1], ortho2(1)));
-				//drawAeq.push_back(T(eqsize, mesh.nodes[n]->x[2], ortho2(2)));
-				if (movement) {
-					bfill = ortho2.transpose() * xdot.segment<3>(0);
-					beq_.push_back(make_pair(eqsize, bfill));
+					Aeq_.push_back(T(eqsize, n * 3, ortho1(0)));
+					Aeq_.push_back(T(eqsize, n * 3 + 1, ortho1(1)));
+					Aeq_.push_back(T(eqsize, n * 3 + 2, ortho1(2)));
+					if (online) {
+						drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[0], ortho1(0)));
+						drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[1], ortho1(1)));
+						drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[2], ortho1(2)));
+					}
+					if (movement) {
+						bfill = ortho1.transpose() * xdot.segment<3>(0);
+						beq_.push_back(make_pair(eqsize, bfill));
+					}
+					eqsize++;
+
+					Aeq_.push_back(T(eqsize, n * 3, ortho2(0)));
+					Aeq_.push_back(T(eqsize, n * 3 + 1, ortho2(1)));
+					Aeq_.push_back(T(eqsize, n * 3 + 2, ortho2(2)));
+					if (online) {
+						drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[0], ortho2(0)));
+						drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[1], ortho2(1)));
+						drawAeq.push_back(Vector3d(eqsize, mesh.nodes[n]->x[2], ortho2(2)));
+					}
+					if (movement) {
+						bfill = ortho2.transpose() * xdot.segment<3>(0);
+						beq_.push_back(make_pair(eqsize, bfill));
+					}
+					eqsize++;
 				}
-				eqsize++;
+				else {
+					Aineq_.push_back(T(ineqsize, n * 3, -nor(0)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, -nor(1)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, -nor(2)));
+					if (online) {
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], nor(0)));
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], nor(1)));
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[2], nor(2)));
+					}
+					if (movement) {
+						bfill = nor.transpose() * xdot.segment<3>(0);
+						bineq_.push_back(make_pair(ineqsize, -bfill));
+					}
+					ineqsize++;
+
+					Aineq_.push_back(T(ineqsize, n * 3, ortho1(0)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, ortho1(1)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, ortho1(2)));
+					if (online) {
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], ortho1(0)));
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], ortho1(1)));
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[2], ortho1(2)));
+					}
+					if (movement) {
+						bfill = ortho1.transpose() * xdot.segment<3>(0);
+						bineq_.push_back(make_pair(ineqsize, bfill));
+					}
+					ineqsize++;
+
+					Aineq_.push_back(T(ineqsize, n * 3, ortho2(0)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, ortho2(1)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, ortho2(2)));
+					if (online) {
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], ortho2(0)));
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], ortho2(1)));
+						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[2], ortho2(2)));
+					}
+					if (movement) {
+						bfill = ortho2.transpose() * xdot.segment<3>(0);
+						bineq_.push_back(make_pair(ineqsize, bfill));
+					}
+					ineqsize++;
+				}
 			}
 			else {
 				Node* node = mesh.nodes[n];
@@ -220,41 +287,80 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 					xdot = ((et*xl) - (obs->boxes[boxnum]->E1*xl)) / h;
 				}
 
-				Aineq_.push_back(T(ineqsize, n * 3, -constraintTable(0,node->cdEdges[0])));
-				Aineq_.push_back(T(ineqsize, n * 3 + 1, -constraintTable(1, node->cdEdges[0])));
-				Aineq_.push_back(T(ineqsize, n * 3 + 2, -constraintTable(2, node->cdEdges[0])));
-				if (online) {
-					drawAineq.push_back(Vector3d(ineqsize, node->x[0], constraintTable(0, node->cdEdges[0])));
-					drawAineq.push_back(Vector3d(ineqsize, node->x[1], constraintTable(1, node->cdEdges[0])));
-					drawAineq.push_back(Vector3d(ineqsize, node->x[2], constraintTable(2, node->cdEdges[0])));
+				// When locally flat we have a null space problem so we need to check
+				bool flat = true;
+				Face* face0 = node->verts[0]->adjf[0];
+				for (int f = 1 ; f < node->verts[0]->adjf.size(); f++) {
+					Face* face1 = node->verts[0]->adjf[f];
+					if (get_angle(face0->n, face1->n) > 0.1) {
+						flat = false;
+						break;
+					}
 				}
-				if (movement) {
-					Vector3d nor = constraintTable.block(0, node->cdEdges[0], 3, 1); // Only works if stored for some reason
-					bfill = nor.transpose() * xdot.segment<3>(0);
-					bineq_.push_back(make_pair(ineqsize, -bfill));
-				}
-				ineqsize++;
 
-				Aineq_.push_back(T(ineqsize, n * 3, -constraintTable(3, node->cdEdges[0])));
-				Aineq_.push_back(T(ineqsize, n * 3 + 1, -constraintTable(4, node->cdEdges[0])));
-				Aineq_.push_back(T(ineqsize, n * 3 + 2, -constraintTable(5, node->cdEdges[0])));
-				if (online) {
-					drawAineq.push_back(Vector3d(ineqsize, node->x[0], constraintTable(3, node->cdEdges[0])));
-					drawAineq.push_back(Vector3d(ineqsize, node->x[1], constraintTable(4, node->cdEdges[0])));
-					drawAineq.push_back(Vector3d(ineqsize, node->x[2], constraintTable(5, node->cdEdges[0])));
-				}
-				if (movement) {
-					Vector3d nor = constraintTable.block(3, node->cdEdges[0], 3, 1); // Only works if stored for some reason
-					bfill = nor.transpose() * xdot.segment<3>(0);
-					bineq_.push_back(make_pair(ineqsize, -bfill));
-				}
-				ineqsize++;
+				// If the point is locally flat then we want to use an equality constraint
+				if (flat) {
+					Aineq_.push_back(T(ineqsize, n * 3, -node->n[0]));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, -node->n[1]));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, -node->n[2]));
+					if (online) {
+						drawAineq.push_back(Vector3d(ineqsize, node->x[0], node->n[0]));
+						drawAineq.push_back(Vector3d(ineqsize, node->x[1], node->n[1]));
+						drawAineq.push_back(Vector3d(ineqsize, node->x[2], node->n[2]));
+					}
+					if (movement) {
+						bfill = v2e(node->n).transpose() * xdot.segment<3>(0);
+						bineq_.push_back(make_pair(ineqsize, -bfill));
+					}
+					ineqsize++;
 
+					Vector3d flatConstraint = v2e(node->n).cross(constraintTable.block<3,1>(6, node->cdEdges[0]));
 
-				//Aeq_.push_back(T(ineqsize, n * 3, constraintTable[mesh.nodes[n]->cdEdges[0]](6)));
-				//Aeq_.push_back(T(ineqsize, n * 3 + 1, constraintTable[mesh.nodes[n]->cdEdges[0]](7)));
-				//Aeq_.push_back(T(ineqsize, n * 3 + 2, constraintTable[mesh.nodes[n]->cdEdges[0]](8)));
-				//eqsize++;
+					Aeq_.push_back(T(eqsize, n * 3, -flatConstraint(0)));
+					Aeq_.push_back(T(eqsize, n * 3 + 1, -flatConstraint(1)));
+					Aeq_.push_back(T(eqsize, n * 3 + 2, -flatConstraint(2)));
+					if (online) {
+						drawAeq.push_back(Vector3d(eqsize, node->x[0], flatConstraint(0)));
+						drawAeq.push_back(Vector3d(eqsize, node->x[1], flatConstraint(1)));
+						drawAeq.push_back(Vector3d(eqsize, node->x[2], flatConstraint(2)));
+					}
+					if (movement) {
+						bfill = flatConstraint.transpose() * xdot.segment<3>(0);
+						beq_.push_back(make_pair(eqsize, -bfill));
+					}
+					eqsize++;
+				}
+				else {
+					Aineq_.push_back(T(ineqsize, n * 3, -constraintTable(0, node->cdEdges[0])));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, -constraintTable(1, node->cdEdges[0])));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, -constraintTable(2, node->cdEdges[0])));
+					if (online) {
+						drawAineq.push_back(Vector3d(ineqsize, node->x[0], constraintTable(0, node->cdEdges[0])));
+						drawAineq.push_back(Vector3d(ineqsize, node->x[1], constraintTable(1, node->cdEdges[0])));
+						drawAineq.push_back(Vector3d(ineqsize, node->x[2], constraintTable(2, node->cdEdges[0])));
+					}
+					if (movement) {
+						Vector3d nor = constraintTable.block(0, node->cdEdges[0], 3, 1); // Only works if stored for some reason
+						bfill = nor.transpose() * xdot.segment<3>(0);
+						bineq_.push_back(make_pair(ineqsize, -bfill));
+					}
+					ineqsize++;
+
+					Aineq_.push_back(T(ineqsize, n * 3, -constraintTable(3, node->cdEdges[0])));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, -constraintTable(4, node->cdEdges[0])));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, -constraintTable(5, node->cdEdges[0])));
+					if (online) {
+						drawAineq.push_back(Vector3d(ineqsize, node->x[0], constraintTable(3, node->cdEdges[0])));
+						drawAineq.push_back(Vector3d(ineqsize, node->x[1], constraintTable(4, node->cdEdges[0])));
+						drawAineq.push_back(Vector3d(ineqsize, node->x[2], constraintTable(5, node->cdEdges[0])));
+					}
+					if (movement) {
+						Vector3d nor = constraintTable.block(3, node->cdEdges[0], 3, 1); // Only works if stored for some reason
+						bfill = nor.transpose() * xdot.segment<3>(0);
+						bineq_.push_back(make_pair(ineqsize, -bfill));
+					}
+					ineqsize++;
+				}
 
 				// If a boundary, the Eulerian constraint stops it from moving outside
 				if (is_seam_or_boundary(node)) {
@@ -410,7 +516,7 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 
 void Constraints::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Program> prog) const
 {
-	glColor3f(1.0f, 0.0f, 1.0f);
+	glColor3f(1.0f, 0.0f, 0.0f);
 
 	int connum = -1, inerdex = 0;
 	Vector3d tcon, tpos;
@@ -431,7 +537,7 @@ void Constraints::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Progra
 		}
 	}
 
-	glColor3f(0.0f, 0.0f, 1.0f);
+	glColor3f(0.0f, 1.0f, 0.0f);
 	for (int i = 0; i < drawAeq.size(); i++) {
 		if (connum != drawAeq[i](0)) {
 			connum = drawAeq[i](0);

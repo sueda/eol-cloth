@@ -55,6 +55,8 @@ public:
 
 	std::shared_ptr<Constraints> consts;
 	std::shared_ptr<Forces> myForces;
+
+	Eigen::MatrixXd boundaries;
 	
 	Cloth();
 	virtual ~Cloth() {};
