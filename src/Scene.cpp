@@ -139,7 +139,6 @@ void Scene::draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program>
 void Scene::drawSimple(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const
 {
 	obs->drawSimple(MV, p);
-	cloth->consts->drawSimple(MV, p);
 	cloth->drawSimple(MV, p);
 }
 #endif // EOLC_ONLINE

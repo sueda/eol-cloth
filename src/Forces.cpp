@@ -920,7 +920,7 @@ void Forces::fill(const Mesh& mesh, const Material& mat, const Vector3d& grav, d
 
 	//nodeBasedF(mesh, f, M_, grav);
 	faceBasedF(mesh, f, MDK_, M_, grav, h);
-	//edgeBasedF(mesh, mat, f, MDK_, h);
+	edgeBasedF(mesh, mat, f, MDK_, h);
 
 	M.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
 	MDK.resize(mesh.nodes.size() * 3 + mesh.EoL_Count * 2, mesh.nodes.size() * 3 + mesh.EoL_Count * 2);
@@ -933,29 +933,29 @@ void Forces::fill(const Mesh& mesh, const Material& mat, const Vector3d& grav, d
 
 void Forces::drawSimple(const Mesh &mesh, shared_ptr<MatrixStack> MV, const shared_ptr<Program> prog) const
 {
-	//if (f.size() == 0) return;
+	if (f.size() == 0) return;
 
-	//for (int n = 0; n < mesh.nodes.size(); n++) {
-	//	Node* node = mesh.nodes[n];
-	//	int nodei = n * 3;
-	//	if (nodei >= f.size()) continue;
-	//	double scale = 10.0;
-	//	glColor3f(1.0f, 0.0f, 1.0f);
-	//	glBegin(GL_LINES);
-	//	glVertex3f(node->x[0], node->x[1], node->x[2]);
-	//	glVertex3f(node->x[0] + (f(nodei) * scale), node->x[1] + (f(nodei + 1) * scale), node->x[2] + (f(nodei + 2) * scale));
-	//	glEnd();
-	//	if (node->EoL) {
-	//		int nodeEi = mesh.nodes.size() * 3 + node->EoL_index * 2;
-	//		MatrixXd F = deform_grad(node->verts[0]->adjf[0]);
-	//		Vector3d dF = F * f.segment<2>(nodeEi);
-	//		glColor3f(0.0f, 0.0f, 1.0f);
-	//		glBegin(GL_LINES);
-	//		glVertex3f(node->x[0], node->x[1], node->x[2]);
-	//		glVertex3f(node->x[0] + (dF(0) * scale), node->x[1] + (dF(1) * scale), node->x[2] + (dF(2) * scale));
-	//		glEnd();
-	//	}
-	//}
+	for (int n = 0; n < mesh.nodes.size(); n++) {
+		Node* node = mesh.nodes[n];
+		int nodei = n * 3;
+		if (nodei >= f.size()) continue;
+		double scale = 10.0;
+		glColor3f(1.0f, 0.0f, 1.0f);
+		glBegin(GL_LINES);
+		glVertex3f(node->x[0], node->x[1], node->x[2]);
+		glVertex3f(node->x[0] + (f(nodei) * scale), node->x[1] + (f(nodei + 1) * scale), node->x[2] + (f(nodei + 2) * scale));
+		glEnd();
+		if (node->EoL) {
+			int nodeEi = mesh.nodes.size() * 3 + node->EoL_index * 2;
+			MatrixXd F = deform_grad(node->verts[0]->adjf[0]);
+			Vector3d dF = F * f.segment<2>(nodeEi);
+			glColor3f(0.0f, 0.0f, 1.0f);
+			glBegin(GL_LINES);
+			glVertex3f(node->x[0], node->x[1], node->x[2]);
+			glVertex3f(node->x[0] + (dF(0) * scale), node->x[1] + (dF(1) * scale), node->x[2] + (dF(2) * scale));
+			glEnd();
+		}
+	}
 }
 
 #endif

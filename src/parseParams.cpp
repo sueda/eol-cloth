@@ -118,7 +118,7 @@ void parse(Vector3d &v, const Json::Value &json) {
 
 void parse(VectorXd &v, const Json::Value &json) {
 	if (!json.isArray()) complain(json, "array");
-	if (v.size() != json.size()) complain(json, "array of size" + to_string(v.size()));
+	if (v.size() != json.size()) complain(json, "array of size " + to_string(v.size()));
 	for (int i = 0; i < v.size(); i++) {
 		v(i) = json[i].asDouble();
 	}
@@ -222,7 +222,6 @@ void load_fixedset(vector<shared_ptr<FixedList> > &fsv, const Json::Value& json)
 		parse(fs->c2, json["0"]["corner2"], nothing);
 		parse(fs->c3, json["0"]["corner3"], nothing);
 		parse(fs->c4, json["0"]["corner4"], nothing);
-		cout << fs->c4 << endl;
 		fsv.push_back(fs);
 	}
 	else {
@@ -255,11 +254,16 @@ void load_defclothset(shared_ptr<Cloth> cloth, const Json::Value& json)
 {
 	Vector2i res;
 	parse(res, json["initial_cloth_res"], Vector2i(2, 2));
-	Vector3d p00, p01, p10, p11;
-	parse(p00, json["corner1"], Vector3d(0.0, 0.0, 0.0));
-	parse(p01, json["corner2"], Vector3d(1.0, 0.0, 0.0));
-	parse(p10, json["corner3"], Vector3d(0.0, 0.0, 1.0));
-	parse(p11, json["corner4"], Vector3d(1.0, 0.0, 1.0));
+	VectorXd p00(5), p01(5), p10(5), p11(5);
+	VectorXd dp00(5), dp01(5), dp10(5), dp11(5);
+	dp00 << 0.0, 0.0, 0.0, 0.0, 0.0;
+	dp10 << 1.0, 0.0, 0.0, 1.0, 0.0;
+	dp01 << 0.0, 1.0, 0.0, 0.0, 1.0;
+	dp11 << 1.0, 1.0, 0.0, 1.0, 1.0;
+	parse(p00, json["corner1"], dp00);
+	parse(p01, json["corner2"], dp01);
+	parse(p10, json["corner3"], dp10);
+	parse(p11, json["corner4"], dp11);
 	cloth->build(res, p00, p01, p10, p11);
 	cloth->mesh.parent = cloth;
 	cloth->mesh.ref = new ReferenceLinear(cloth->mesh);

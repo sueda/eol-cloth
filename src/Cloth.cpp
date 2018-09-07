@@ -34,41 +34,56 @@ Cloth::Cloth() :
 }
 
 void Cloth::build(const Vector2i res,
-	const Vector3d &x00,
-	const Vector3d &x01,
-	const Vector3d &x10,
-	const Vector3d &x11)
+	const VectorXd &xX00,
+	const VectorXd &xX01,
+	const VectorXd &xX10,
+	const VectorXd &xX11)
 {
+	// Break up into world and texture points
+	Vector3d x00, x01, x10, x11;
+	Vector3d X00 = Vector3d::Zero(), X01 = Vector3d::Zero(), X10 = Vector3d::Zero(), X11 = Vector3d::Zero();
+
+	x00 = xX00.segment<3>(0);
+	x01 = xX01.segment<3>(0);
+	x10 = xX10.segment<3>(0);
+	x11 = xX11.segment<3>(0);
+	X00.segment<2>(0) = xX00.segment<2>(3);
+	X01.segment<2>(0) = xX01.segment<2>(3);
+	X10.segment<2>(0) = xX10.segment<2>(3);
+	X11.segment<2>(0) = xX11.segment<2>(3);
+
 	// Set boundary values
 	// In this fixed 4 corner case, the outer boundary is made up of those 4 corners
 	boundaries.resize(3, 4);
-	boundaries.block<3, 1>(0, 0) = x00;
-	boundaries.block<3, 1>(0, 1) = x01;
-	boundaries.block<3, 1>(0, 2) = x11; // we flip this order to they are sequential of a continueous boundary path
-	boundaries.block<3, 1>(0, 3) = x10;
+	boundaries.block<3, 1>(0, 0) = X00;
+	boundaries.block<3, 1>(0, 1) = X01;
+	boundaries.block<3, 1>(0, 2) = X11; // we flip this order to they are sequential of a continueous boundary path
+	boundaries.block<3, 1>(0, 3) = X10;
 
 	for (int i = 0; i < res(0); ++i) {
 		double u = i / (res(0) - 1.0);
 		Vector3d x0 = (1 - u)*x00 + u*x10;
 		Vector3d x1 = (1 - u)*x01 + u*x11;
+		Vector3d X0 = (1 - u)*X00 + u*X10;
+		Vector3d X1 = (1 - u)*X01 + u*X11;
 		for (int j = 0; j < res(1); ++j) {
 			double v = j / (res(1) - 1.0);
 			Vector3d x = (1 - v)*x0 + v*x1;
-			mesh.add(new Vert(Vec3(x(0),x(1),0.0), Vec3(0)));
+			Vector3d X = (1 - v)*X0 + v*X1;
+			mesh.add(new Vert(e2v(X), Vec3(0)));
 			mesh.add(new Node(e2v(x), e2v(x), Vec3(0), 0, 0, false));
 			connect(mesh.verts.back(), mesh.nodes.back());
 		}
 	}
-	double dx = ((x01(0) - x00(0)) / (res(1) - 1)) / 2;
-	double dy = ((x10(1) - x00(1)) / (res(0) - 1)) / 2;
+
 	for (int i = 0; i < res(0) - 1; ++i) {
 		for (int j = 0; j < res(1) - 1; ++j) {
-			Vector3d x = x00;
-			x(0) += (2 * j + 1) * dx;
-			x(1) += (2 * i + 1) * dy;
-			Vec3 ver(x[0], x[1], 0);
-			Vec3 vel(0.0, 0.0, 0.0);
-			mesh.add(new Vert(Vec3(x(0), x(1), 0.0), Vec3(0)));
+			// Add a central node at the center of a set of 4 nodes
+			// This allows 4 triangles to be generated per set of 5 nodes
+			int k0 = (i * res(1)) + j; // upper right index
+			Vector3d x = (v2e(mesh.nodes[k0]->x) + v2e(mesh.nodes[k0 + 1]->x) + v2e(mesh.nodes[k0 + res(1) + 1]->x) + v2e(mesh.nodes[k0 + res(1)]->x)) / 4;
+			Vector3d X = (v2e(mesh.verts[k0]->u) + v2e(mesh.verts[k0 + 1]->u) + v2e(mesh.verts[k0 + res(1) + 1]->u) + v2e(mesh.verts[k0 + res(1)]->u)) / 4;
+			mesh.add(new Vert(e2v(X), Vec3(0)));
 			mesh.add(new Node(e2v(x), e2v(x), Vec3(0), 0, 0, false));
 			connect(mesh.verts.back(), mesh.nodes.back());
 		}
@@ -498,7 +513,8 @@ void Cloth::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Program> p) 
 		}
 	}
 
-	myForces->drawSimple(mesh, MV, p);
+	//consts->drawSimple(MV, p);
+	//myForces->drawSimple(mesh, MV, p);
 }
 #endif // EOLC_ONLINE
 

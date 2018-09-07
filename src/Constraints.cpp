@@ -184,7 +184,8 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 					}
 				}
 
-				if (flat) {
+				// We want out orthonormal point constraints to be equality constraints if the mesh is locally flat or just a point and not a corner
+				if (flat || node->cornerID < obs->points->num_points) {
 					Aineq_.push_back(T(ineqsize, n * 3, -nor(0)));
 					Aineq_.push_back(T(ineqsize, n * 3 + 1, -nor(1)));
 					Aineq_.push_back(T(ineqsize, n * 3 + 2, -nor(2)));
@@ -242,9 +243,9 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 					}
 					ineqsize++;
 
-					Aineq_.push_back(T(ineqsize, n * 3, ortho1(0)));
-					Aineq_.push_back(T(ineqsize, n * 3 + 1, ortho1(1)));
-					Aineq_.push_back(T(ineqsize, n * 3 + 2, ortho1(2)));
+					Aineq_.push_back(T(ineqsize, n * 3, -ortho1(0)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, -ortho1(1)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, -ortho1(2)));
 					if (online) {
 						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], ortho1(0)));
 						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], ortho1(1)));
@@ -256,9 +257,9 @@ void Constraints::fill(const Mesh& mesh, const shared_ptr<Obstacles> obs, const 
 					}
 					ineqsize++;
 
-					Aineq_.push_back(T(ineqsize, n * 3, ortho2(0)));
-					Aineq_.push_back(T(ineqsize, n * 3 + 1, ortho2(1)));
-					Aineq_.push_back(T(ineqsize, n * 3 + 2, ortho2(2)));
+					Aineq_.push_back(T(ineqsize, n * 3, -ortho2(0)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 1, -ortho2(1)));
+					Aineq_.push_back(T(ineqsize, n * 3 + 2, -ortho2(2)));
 					if (online) {
 						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[0], ortho2(0)));
 						drawAineq.push_back(Vector3d(ineqsize, mesh.nodes[n]->x[1], ortho2(1)));
@@ -538,6 +539,8 @@ void Constraints::drawSimple(shared_ptr<MatrixStack> MV, const shared_ptr<Progra
 	}
 
 	glColor3f(0.0f, 1.0f, 0.0f);
+
+	connum = -1, inerdex = 0;
 	for (int i = 0; i < drawAeq.size(); i++) {
 		if (connum != drawAeq[i](0)) {
 			connum = drawAeq[i](0);

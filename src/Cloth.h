@@ -62,10 +62,10 @@ public:
 	virtual ~Cloth() {};
 
 	void build(const Eigen::Vector2i res,
-		const Eigen::Vector3d &p00,
-		const Eigen::Vector3d &p01,
-		const Eigen::Vector3d &p10,
-		const Eigen::Vector3d &p11);
+		const Eigen::VectorXd &p00,
+		const Eigen::VectorXd &p01,
+		const Eigen::VectorXd &p10,
+		const Eigen::VectorXd &p11);
 	void build(const std::string &filename);
 	void updatePosNor();
 	void updateBuffers();

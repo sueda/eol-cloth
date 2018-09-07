@@ -13,8 +13,8 @@
 using namespace std;
 using namespace Eigen;
 
-double thresh = 0.05; // TODO:: Move
-double boundary = 0.03; // TODO:: Move;
+double thresh = 0.025; // TODO:: Move
+double boundary = 0.025; // TODO:: Move;
 
 Vert *adjacent_vert(const Node *node, const Vert *vert);
 
@@ -422,14 +422,11 @@ bool collapse_conformal(Mesh &mesh, bool &allclear)
 	for (int i = 0; i < mesh.edges.size(); i++) {
 		Edge *e = mesh.edges[i];
 		if (e->preserve) {
-			if (edge_length(e) < thresh) {
+			if (edge_length(e) < (2.0 * thresh)) {
 				allclear = false;
 				RemeshOp op;
 				Node *n0 = e->n[0],
 					*n1 = e->n[1];
-				if (n0->index == 607 || n1->index == 607) {
-					cout << endl;
-				}
 				if (is_seam_or_boundary(n1) || n1->cornerID >= 0) {
 					if (!can_collapseForced(e, 0)) continue;
 					op = collapse_edgeForced(e, 0);
@@ -493,12 +490,23 @@ bool collapse_nonconformal(Mesh &mesh, bool &allclear)
 						Node *n0 = e0->n[0],
 							*n1 = e0->n[1];
 						if (n0->EoL && n1->EoL) continue;
-						if (n0->preserve || n1->preserve) continue; // Don't mess with preserved points which are different from EoL points
+						//if (n0->preserve || n1->preserve) continue; // Don't mess with preserved points which are different from EoL points
 						// Don't deal with edges between boundary and inside
 						if (!(
 							(is_seam_or_boundary(n0) && is_seam_or_boundary(n1)) ||
 							(!is_seam_or_boundary(n0) && !is_seam_or_boundary(n1))
 							)) continue;
+						// These two loops should help fix some rare special cases, but may cause problems??
+						bool worst = true;
+						for (int ee = 0; ee < n0->adje.size(); ee++) {
+							Edge *e1 = n0->adje[ee];
+							if (edge_length(e1) < edge_length(e0)) worst = false;
+						}
+						for (int ee = 0; ee < n1->adje.size(); ee++) {
+							Edge *e1 = n1->adje[ee];
+							if (edge_length(e1) < edge_length(e0)) worst = false;
+						}
+						if (!worst) continue;
 						allclear = false;
 						RemeshOp op;
 						if (n0->EoL) {
@@ -612,15 +620,30 @@ bool split_illconditioned_faces(Mesh &mesh)
 {
 	vector<Edge*> bad_edges;
 	vector<int> case_pair;
+	vector<double> split_point;
 	for (int i = 0; i < mesh.faces.size(); i++) {
 		Face *f0 = mesh.faces[i];
 		int cc = conformalCount(f0);
 		if (cc == 1) {
 			Node *n0 = single_eol_from_face(f0);
 			Edge *e0 = get_opp_edge(f0, n0);
-			if (face_altitude(e0, f0) < thresh / 2) {
+			double faceAlti = face_altitude(e0, f0);
+			if (faceAlti < thresh / 2) {
+				double sp = 0.5;
+				// Special case where it's better if we split along a different segment
+				for (int ff = 0; ff < n0->verts[0]->adjf.size(); ff++) {
+					Face *f1 = n0->verts[0]->adjf[ff];
+					if (f0 == f1) continue;
+					Edge *e1 = get_opp_edge(f1, n0);
+					if (face_altitude(e1, f1) < faceAlti) {
+						e0 = e1;
+						sp = (linepoint(e0->n[0]->x, e0->n[1]->x, n0->x));
+					}
+				}
+				if (sp < 0.0 || sp > 1.0) continue; // Just to avoid problems, although if it happens there might already be a problem
 				bad_edges.push_back(e0);
 				case_pair.push_back(1);
+				split_point.push_back(sp);
 			}
 		}
 		// TODO:: Cases 2 and 3 may break if large triangles share individual EoL points without preserved edges
@@ -630,6 +653,7 @@ bool split_illconditioned_faces(Mesh &mesh)
 			if (face_altitude(e0, f0) < (thresh / 2)) {
 				bad_edges.push_back(e0);
 				case_pair.push_back(2);
+				split_point.push_back(0.5);
 			}
 		}
 		else if(cc == 3) {
@@ -637,6 +661,7 @@ bool split_illconditioned_faces(Mesh &mesh)
 			if (face_altitude(e0, f0) < thresh / 2) {
 				bad_edges.push_back(e0);
 				case_pair.push_back(3);
+				split_point.push_back(0.5);
 			}
 		}
 	}
@@ -645,7 +670,7 @@ bool split_illconditioned_faces(Mesh &mesh)
 		Edge *edge = bad_edges[e];
 		if (!edge) continue;
 		Node *node0 = edge->n[0], *node1 = edge->n[1];
-		RemeshOp op = split_edgeForced(edge, 0.5, thresh);
+		RemeshOp op = split_edgeForced(edge, split_point[e], thresh);
 		if (op.empty()) {
 			exclude++;
 			continue;
@@ -708,7 +733,7 @@ void preprocess(Mesh& mesh, const MatrixXd &boundaries, const vector<shared_ptr<
 	addGeometry(mesh, boundaries, cls);
 	//revertWasEOL(mesh, boundaries);
 
-	markPreserve(mesh);
+	//markPreserve(mesh);
 
 	cleanup(mesh);
 

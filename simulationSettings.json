@@ -15,13 +15,13 @@
 	
 	// The default cloth is 1m x 1m, centerd at (0.5,0.5,0.0), with a 2 points x 2 points resolution
 	"Cloth": {
-		// Used in absence of a cloth obj
+		// Only 3 corners of format [x ,y, z, X, Y]
 		"init": {
 			"initial_cloth_res": [3, 3],
-			"corner1": [0.0, 0.0, 0.0],
-			"corner2": [1.0, 0.0, 0.0],
-			"corner3": [0.0, 1.0, 0.0],
-			"corner4": [1.0, 1.0, 0.0]
+			"corner1": [0.0, 0.0, 0.0, 0.0, 0.0],
+			"corner2": [1.0, 0.0, 0.0, 1.0, 0.0],
+			"corner3": [0.0, 1.0, 0.0, 0.0, 1.0],
+			"corner4": [1.0, 1.0, 0.0, 1.0, 1.0]
 		},
 		
 		"Material": {
@@ -69,11 +69,11 @@
 		"threshold": 5e-3,
 
 		"points": [
-			[0.51, 0.585, -0.005, 
+			[0.751, 0.751, -0.005, 
 			0.0, 0.0, 1.0],
-			[0.71, 0.35, -0.005, 
+			[0.71, 0.22, -0.005, 
 			0.0, 0.0, 1.0],
-			[0.8, 0.67, -0.005, 
+			[0.27, 0.51, -0.005, 
 			0.0, 0.0, 1.0]
 			
 		],

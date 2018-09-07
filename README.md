@@ -5,7 +5,6 @@ EoL-Cloth is a simulation tool for simulating the phenomenon of cloth sliding ov
 
 Check out the project page [here](http://faculty.cs.tamu.edu/sueda/projects/eol-cloth/ "EoL-Cloth").
 
-# NOTE: THERE IS A BUG WITH THE BOX EDGE THAT WAS INTRODUCED, IT WILL BE FIXED SOON
 ## Installing
 #### Dependencies
 * [CMake](https://cmake.org/ "CMake")
@@ -33,7 +32,7 @@ git clone https://github.com/sueda/eol-cloth
 cd eol-cloth
 mkdir build
 ```
-Before building with CMake, open the CMakeLists.txt file with a text editor. While the build options can be set when we run CMake, for each option turned ON the corresponding dependency file path must be set. I do this for ease of use with multiple external library versions installed. Set the paths as shown to match the machine. Note some of the binaries are defined for the solvers which are platform specific. 
+Before building with CMake, open the CMakeLists.txt file with a text editor (I know this is bad practice). While the build options can be set when we run CMake, for each option turned ON the corresponding dependency file path must be set. I do this for ease of use with multiple external library versions installed. Set the paths as shown to match the machine. Note some of the binaries are defined for the solvers which are platform specific. 
 ```sh
 cd build
 cmake [options] ..
