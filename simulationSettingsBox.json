@@ -44,7 +44,7 @@
 		// The corner points can be fixed or given a scripted motion
 		// 1 for the first three values turns on fix/script along the x,y,z axis 
 		// The number of the second three values is the set velocity of that point along that axis, i.e. 0 is fixed
-		// When is the the point in simulation seconds the fixed parameters should change
+		// "When" is the time in simulation seconds the fixed parameters should change
 		"Fixed": {
 			"0": {
 				"when": 0,
@@ -66,12 +66,23 @@
 	// Obstacles can include points, boxes, or both
 	// Either can be loaded from an external file, defined here, or both
 	"Obstacles": {
+		// Collision threshold
 		"threshold": 5e-3,
 
+		// Point definitions comma seperated
+		// Each instance of a point follows the structure [x y z xn yn zn]
+		// The x,y,z values are the location of the point 
+		// The xn,yn,zn values are the points normal direction
 		"points": [
 			
 		],
 		
+		// Box definitions comma seperated
+		// Each instance of a box follows the structure [x y z xs xy xz xv yv zv xw yw zw]
+		// The x,y,z values are the center of the point
+		// The xs,ys,zs values are the scale along each local axis
+		// The xv,yv,zv values are the velocity along that local axis
+		// The xw,yw,zw values are the angular velocity around that local axis
 		"boxes": [
 			[1.2, 1.5, 1.0,
 			0.9175, 0.4425, -0.549,
