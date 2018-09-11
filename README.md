@@ -1,9 +1,9 @@
-# EoL-Cloth
+# EOL-Cloth
 Eulerian-on-Lagrangian Cloth Simulation
 ## Info
-EoL-Cloth is a simulation tool for simulating the phenomenon of cloth sliding over sharp geometric features such as boxes and points. It was developed at Texas A&M University and the coinciding publication was presented at SIGGRAPH 2018.  
+EOL-Cloth is a simulation tool for simulating the phenomenon of cloth sliding over sharp geometric features such as boxes and points. It was developed at Texas A&M University and the coinciding publication was presented at SIGGRAPH 2018.  
 
-Check out the project page [here](http://faculty.cs.tamu.edu/sueda/projects/eol-cloth/ "EoL-Cloth").
+Check out the project page [here](http://faculty.cs.tamu.edu/sueda/projects/eol-cloth/ "EOL-Cloth").
 
 ## Installing
 #### Dependencies
@@ -22,7 +22,7 @@ To run the simulation "online" with rendered output these three libraries must b
 OR
 * [GUROBI](http://www.gurobi.com/ "Gurobi")
 
-To handle collisions and in turn the EoL dynamics of the simulation, a quadratic program (QP) must be used. The Mosek and Gurobi libraries are currently supported using corresponding QP wrappers from [here](http://www.google.com/ "Mosek QP Wrapper") and [here](https://github.com/jrl-umi3218/eigen-gurobi "Gurobi QP Wrapper") respectively. These wrappers do not need to be installed seperately, they are already a part of the EoL-Cloth src.
+To handle collisions and in turn the EOL dynamics of the simulation, a quadratic program (QP) must be used. The Mosek and Gurobi libraries are currently supported using corresponding QP wrappers from [here](http://www.google.com/ "Mosek QP Wrapper") and [here](https://github.com/jrl-umi3218/eigen-gurobi "Gurobi QP Wrapper") respectively. These wrappers do not need to be installed seperately, they are already a part of the EOL-Cloth src.
 
 While it does not need to be seperetely installed, we use a modified version of [ARCSim](http://graphics.berkeley.edu/resources/ARCSim/ "ARCSim") to handle our remeshing. Feel free to look into some of the great work that has been done with it. 
 
@@ -71,6 +71,6 @@ To export our objects we use an in lab developed tool we call Brender. After def
 **NOTE**: The export directory must already exist in the file system, the simulation will not generate a directory for you.
 
 ## Contact
-If you would like to contact us for anything regarding EoL-Cloth free to email us.
+If you would like to contact us for anything regarding EOL-Cloth free to email us.
 If you have any code specific comments or find any bugs, please specifically contact Nick Weidner via [GitHub](https://github.com/weidnern "Nick Weidner GitHub") or Email
 
