@@ -1,5 +1,10 @@
 # EOL-Cloth
 Eulerian-on-Lagrangian Cloth Simulation
+
+ACM Transactions on Graphics, 37 (4) 50:1-50:11 (SIGGRAPH), 2018.
+
+[Nicholas J. Weidner](http://weidnern.github.io), [Kyle Piddington](https://www.linkedin.com/in/kyle-piddington-5870b4106/), [David I.W. Levin](http://diwlevin.webfactional.com/researchdb/), [Shinjiro Sueda](http://faculty.cs.tamu.edu/sueda/)
+
 ## Info
 EOL-Cloth is a simulation tool for simulating the phenomenon of cloth sliding over sharp geometric features such as boxes and points. It was developed at Texas A&M University and the coinciding publication was presented at SIGGRAPH 2018.  
 
